@@ -1,0 +1,184 @@
+Current configuration : 2183 bytes
+!
+! Last configuration change at 16:42:33 EET Thu Sep 4 2025
+!
+version 17.12
+service timestamps debug datetime msec
+service timestamps log datetime msec
+!
+hostname IOU1
+!
+boot-start-marker
+boot-end-marker
+!
+!
+no aaa new-model
+!
+!
+!
+clock timezone EET 2 0
+no ip icmp rate-limit unreachable
+!
+!
+!         
+!
+!
+!
+!
+ip dhcp excluded-address 192.168.101.1 192.168.101.9
+!
+ip dhcp pool ETH0/1
+ network 192.168.101.0 255.255.255.0
+ default-router 192.168.101.1 
+!
+!
+!
+no ip domain lookup
+ip domain name example.com
+no ip cef
+login on-success log
+no ipv6 cef
+!
+!
+!
+!
+!
+!         
+!
+!
+multilink bundle-name authenticated
+!
+!
+!
+!
+!
+memory free low-watermark processor 55011
+!
+!
+spanning-tree mode rapid-pvst
+!
+enable secret 9 $9$cmSMTBEgifGqrE$opchQbB.gbKyA5mZosHiTqpe1rNbjj9Lllwl/R9beLg
+!
+username admin password 0 pynet3
+!
+!
+!
+!
+!
+! 
+!         
+!
+!
+!
+!
+!
+!
+!
+!
+!
+!
+!
+!
+!
+!
+interface Ethernet0/0
+ ip address 192.168.100.1 255.255.255.0
+!
+interface Ethernet0/1
+ ip address 192.168.101.1 255.255.255.0
+!
+interface Ethernet0/2
+ ip address 192.168.102.1 255.255.255.0
+!         
+interface Ethernet0/3
+ no ip address
+ shutdown
+!
+interface Ethernet1/0
+ no ip address
+ shutdown
+!
+interface Ethernet1/1
+ no ip address
+ shutdown
+!
+interface Ethernet1/2
+ no ip address
+ shutdown
+!
+interface Ethernet1/3
+ no ip address
+ shutdown
+!
+interface Serial2/0
+ no ip address
+ shutdown 
+ serial restart-delay 0
+!
+interface Serial2/1
+ no ip address
+ shutdown
+ serial restart-delay 0
+!
+interface Serial2/2
+ no ip address
+ shutdown
+ serial restart-delay 0
+!
+interface Serial2/3
+ no ip address
+ shutdown
+ serial restart-delay 0
+!
+interface Serial3/0
+ no ip address
+ shutdown
+ serial restart-delay 0
+!
+interface Serial3/1
+ no ip address
+ shutdown
+ serial restart-delay 0
+!
+interface Serial3/2
+ no ip address
+ shutdown
+ serial restart-delay 0
+!
+interface Serial3/3
+ no ip address
+ shutdown
+ serial restart-delay 0
+!
+ip forward-protocol nd
+!
+ip tcp synwait-time 5
+!
+ip http server
+ip http secure-server
+ip ssh bulk-mode 131072
+!
+!         
+!
+!
+!
+control-plane
+!
+!
+!
+line con 0
+ exec-timeout 0 0
+ privilege level 15
+ logging synchronous
+line aux 0
+ exec-timeout 0 0
+ privilege level 15
+ logging synchronous
+line vty 0 4
+ login local
+ transport input ssh
+!
+!
+!
+!
+end 

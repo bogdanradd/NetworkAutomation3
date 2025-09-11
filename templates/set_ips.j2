@@ -1,0 +1,6 @@
+{% for int in ints %}
+int {{ int.name }}
+ip add {{ int.ip }} 255.255.255.0
+no sh
+{% endfor %}
+end
