@@ -15,6 +15,7 @@ commands = [
     'transport input ssh',
     'exit',
     'ip ssh version 2',
+    # adauga restconf doar pe care suporta,
     'exit',
 
 ]

@@ -73,8 +73,8 @@ devices:
           login:
             username: admin
             password: pynet3
-  Router:
-    os: ios
+  CSR:
+    os: iosxe
     type: router
     custom:
       hostname: Router
@@ -152,7 +152,7 @@ topology:
         type: ethernet
         link: iosv_csr
         ipv4: 192.168.203.2/24
-  Router:
+  CSR:
     interfaces:
       GigabitEthernet1:
         type: ethernet
