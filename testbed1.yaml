@@ -138,6 +138,15 @@ devices:
           login:
             username: admin
             password: pynet3
+      rest:
+        class: lib.connectors.rest_conn.RESTConnector
+        protocol: https
+        ip: 192.168.200.4
+        port: 443
+        credentials:
+          login:
+            username: admin
+            password: pynet3
 
 
 
