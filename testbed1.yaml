@@ -110,6 +110,35 @@ devices:
           login:
             username: admin
             password: pynet3
+  FTD:
+    os: ftd
+    type: ftd
+    custom:
+      hostname: FTD
+      domain: example.com
+    credentials:
+      enable:
+        password: pynet3
+    connections:
+      telnet:
+        class: lib.connectors.async_telnet_conn.TelnetConnection
+        protocol: telnet
+        ip: 92.81.55.146
+        port: 5012
+        credentials:
+          login:
+            username: admin
+            password: Cisco!23
+      ssh:
+        class: lib.connectors.ssh_conn.SSHConnection
+        protocol: ssh
+        ip: 192.168.200.4
+        port: 22
+        credentials:
+          login:
+            username: admin
+            password: pynet3
+
 
 
 topology:
@@ -167,3 +196,18 @@ topology:
         type: ethernet
         link: csr_ftd
         ipv4: 192.168.204.3/24
+  FTD:
+    interfaces:
+      Management1/1:
+        type: ethernet
+        alias: initial
+        link: management
+        ipv4: 192.168.200.4/24
+      GigabitEthernet1/1:
+        type: ethernet
+        link: csr_ftd
+        ipv4: 192.168.204.4/24
+      GigabitEthernet1/2:
+        type: ethernet
+        link: ftd_ep2
+        ipv4: 192.168.205.4/24
