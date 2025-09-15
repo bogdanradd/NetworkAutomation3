@@ -31,6 +31,7 @@ class SSHConnection:
         time.sleep(1)
         print(stdout.read())
 
+
     def __enter__(self):
         return self
 

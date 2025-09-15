@@ -61,6 +61,21 @@ devices:
         ip: 192.168.200.3
         port: 22
 
+  FTD:
+    os: ftd
+    type: ftd
+    credentials:
+      default:
+        username: admin
+        password: pynet3
+      enable:
+        password: pynet3
+    connections:
+      unicon:
+        protocol: ssh
+        ip: 192.168.200.4
+        port: 22
+
 
 topology:
 
@@ -118,3 +133,19 @@ topology:
         type: ethernet
         link: csr_ftd
         ipv4: 192.168.204.3/24
+
+  FTD:
+    interfaces:
+      Management1/1:
+        type: ethernet
+        alias: initial
+        link: management
+        ipv4: 192.168.200.4/24
+      GigabitEthernet1/1:
+        type: ethernet
+        link: csr_ftd
+        ipv4: 192.168.204.4/24
+      GigabitEthernet1/2:
+        type: ethernet
+        link: ftd_ep2
+        ipv4: 192.168.205.4/24
