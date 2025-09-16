@@ -5,6 +5,7 @@ import sys
 import time
 
 from pyats import aetest, topology
+from pyats.aetest.steps import Step
 
 from ssh_config import commands
 from lib.connectors.async_telnet_conn import TelnetConnection
@@ -12,20 +13,20 @@ from lib.connectors.async_telnet_conn import TelnetConnection
 print(sys.path)
 
 
-class CommonSetup(aetest.CommonSetup):
-    @aetest.subsection
+class ConfigureFTDManagement(aetest.Testcase):
+    @aetest.test
     def load_testbed(self, steps):
         with steps.start("Load testbed"):
             self.tb = topology.loader.load('testbed1.yaml')
             self.parent.parameters.update(tb=self.tb)
 
 
-    @aetest.subsection
+    @aetest.test
     def bring_up_router_interface(self, steps):
         for device in self.tb.devices:
             if self.tb.devices[device].type != 'ftd':
                 continue
-            with steps.start(f'Bring up management interface {device}', continue_=True):
+            with steps.start(f'Bring up management interface {device}', continue_=True) as step: # type: Step
 
                 for interface in self.tb.devices[device].interfaces:
                     if self.tb.devices[device].interfaces[interface].link.name != 'management':
@@ -44,16 +45,19 @@ class CommonSetup(aetest.CommonSetup):
                         conn.write('')
                         time.sleep(1)
                         out = await conn.read(n=1000)
+                        time.sleep(1)
                         print(out)
-                        result = re.search(r'^{?P<login>firepower login:}', out)
+                        result = re.search(r'^\s*(?P<login>firepower login:)', out)
+                        if not result:
+                            step.skipped(reason='Configuration not required')
                         if result.group('login'):
                             conn.write('admin')
-                            time.sleep(0.1)
+                            time.sleep(1)
                             conn.write('Admin123')
                             time.sleep(1)
 
                         out = await conn.read(n=1000)
-
+                        time.sleep(1)
                         if 'EULA:' in out:
                             conn.write('\n')
                             while True:
