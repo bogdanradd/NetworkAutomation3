@@ -212,11 +212,11 @@ topology:
         alias: initial
         link: management
         ipv4: 192.168.200.4/24
-      GigabitEthernet1/1:
+      GigabitEthernet0/0:
         type: ethernet
         link: csr_ftd
         ipv4: 192.168.204.4/24
-      GigabitEthernet1/2:
+      GigabitEthernet0/1:
         type: ethernet
         link: ftd_ep2
         ipv4: 192.168.205.4/24
