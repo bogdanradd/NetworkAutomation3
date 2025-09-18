@@ -33,6 +33,8 @@ class ConfigureFTDManagement(aetest.Testcase):
                         continue
 
                     intf_obj = self.tb.devices[device].interfaces[interface]
+                    hostname = self.tb.devices[device].custom.hostname
+                    gateway = self.tb.devices['UbuntuServer'].interfaces['ens4'].ipv4.ip.compressed
                     conn_class = self.tb.devices[device].connections.get('telnet', {}).get('class', None)
                     assert conn_class, 'No connection for device {}'.format(device)
                     ip = self.tb.devices[device].connections.telnet.ip.compressed
@@ -41,33 +43,33 @@ class ConfigureFTDManagement(aetest.Testcase):
 
                     async def setup():
                         await conn.connect()
-                        time.sleep(1)
+                        await asyncio.sleep(1)
                         conn.write('')
-                        time.sleep(1)
+                        await asyncio.sleep(1)
                         out = await conn.read(n=1000)
-                        time.sleep(1)
+                        await asyncio.sleep(1)
                         print(out)
                         result = re.search(r'^\s*(?P<login>firepower login:)', out)
                         if not result:
                             step.skipped(reason='Configuration not required')
                         if result.group('login'):
                             conn.write('admin')
-                            time.sleep(1)
+                            await asyncio.sleep(1)
                             conn.write('Admin123')
-                            time.sleep(1)
+                            await asyncio.sleep(5)
 
                         out = await conn.read(n=1000)
-                        time.sleep(1)
-                        if 'EULA:' in out:
-                            conn.write('\n')
+                        await asyncio.sleep(1)
+                        if 'Press <ENTER> to display the EULA: ' in out:
+                            conn.write('')
                             while True:
-                                time.sleep(1)
+                                await asyncio.sleep(1)
                                 out = await conn.read(n=1000)
                                 if '--More--' in out:
                                     conn.write(' ')
-                                elif 'EULA:' in out:
-                                    conn.write('\n')
-                                    time.sleep(1)
+                                elif "Please enter 'YES' or press <ENTER> to AGREE to the EULA: " in out:
+                                    conn.write('')
+                                    await asyncio.sleep(1)
                                     out = await conn.read(n=1000)
                                     break
                                 else:
@@ -75,51 +77,54 @@ class ConfigureFTDManagement(aetest.Testcase):
 
                         if 'password:' in out:
                             conn.write(self.tb.devices[device].connections.telnet.credentials.login.password.plaintext)
-                            time.sleep(1)
+                            await asyncio.sleep(1)
                             out = await conn.read(n=1000)
                             if 'password:' in out:
                                 conn.write(self.tb.devices[device].connections.telnet.credentials.login.password.plaintext)
-                                time.sleep(1)
+                                await asyncio.sleep(2)
                                 out = await conn.read(n=1000)
 
                         if 'IPv4? (y/n) [y]:' in out:
-                            conn.write('\n')
-                            time.sleep(1)
+                            conn.write('')
+                            await asyncio.sleep(1)
                             out = await conn.read(n=1000)
                         if 'IPv6? (y/n) [n]:' in out:
-                            conn.write('\n')
-                            time.sleep(1)
+                            conn.write('')
+                            await asyncio.sleep(1)
                             out = await conn.read(n=1000)
                         # result = re.search(r' DHCP or manually? (dhcp/manual) ...:')
                         if '[manual]:' in out:
-                            conn.write('\n')
-                            time.sleep(1)
+                            conn.write('')
+                            await asyncio.sleep(1)
                             out = await conn.read(n=1000)
                         if '[192.168.45.45]:' in out:
-                            conn.write(intf_obj.ipv4.ipv4.ip.compressed)
-                            time.sleep(1)
+                            conn.write(intf_obj.ipv4.ip.compressed)
+                            await asyncio.sleep(1)
                             out = await conn.read(n=1000)
                         if '[255.255.255.0]:' in out:
                             conn.write(intf_obj.ipv4.netmask.exploded)
-                            time.sleep(1)
+                            await asyncio.sleep(1)
                             out = await conn.read(n=1000)
                         if '[192.168.45.1]:' in out:
-                            conn.write((intf_obj.ipv4.ip+1).compressed)
-                            time.sleep(1)
+                            conn.write(gateway)
+                            await asyncio.sleep(1)
+                            out = await conn.read(n=1000)
+                        if '[firepower]:' in out:
+                            conn.write(hostname)
+                            await asyncio.sleep(1)
                             out = await conn.read(n=1000)
                         if '::35]:' in out:
-                            conn.write('')
-                            time.sleep(1)
+                            conn.write(gateway)
+                            await asyncio.sleep(1)
                             out = await conn.read(n=1000)
                         if "'none' []:" in out:
                             conn.write('')
-                            time.sleep(1)
+                            await asyncio.sleep(5)
                             out = await conn.read(n=1000)
-                        if 'locally? (yes/no) [yes]:' in out:
+                        if 'Manage the device locally? (yes/no) [yes]:' in out:
                             conn.write('')
-                            time.sleep(1)
+                            await asyncio.sleep(1)
                             out = await conn.read(n=1000)
-
 
                     asyncio.run(setup())
 

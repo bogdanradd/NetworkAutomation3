@@ -28,7 +28,7 @@ except Exception as e:
     std_out, std_err = sudo_job.communicate("osboxes.org")
     print(std_out)
 
-    ip_done = subprocess.run(['sudo', 'ip', 'addr', 'add', '192.168.100.100/24', 'dev', 'ens4'])
+    ip_done = subprocess.run(['sudo', 'ip', 'addr', 'add', '192.168.200.254/24', 'dev', 'ens4'])
 
     ens4_up = subprocess.run(['sudo', 'ip', 'link', 'set', 'dev', 'ens4', 'up'])
 
@@ -47,7 +47,7 @@ except Exception as e:
     print('ip was tried to be given, though somehow failed' + str(e))
 
 try:
-    add_route = subprocess.run(['sudo', 'ip', 'route', 'add', '192.168.101.0/24', 'via', '192.168.100.1'],
+    add_route = subprocess.run(['sudo', 'ip', 'route', 'add', '192.168.201.0/24', 'via', '192.168.200.1'],
                                stdin=subprocess.PIPE,
                                stdout=subprocess.PIPE,
                                stderr=subprocess.PIPE,
@@ -59,7 +59,7 @@ except Exception as e:
 
 try:
     print("Incoming ping...")
-    ping = subprocess.run(['ping', '-c', '4', '192.168.101.100'],
+    ping = subprocess.run(['ping', '-c', '4', '192.168.201.100'],
                           stdin=subprocess.PIPE,
                           stdout=subprocess.PIPE,
                           stderr=subprocess.PIPE,

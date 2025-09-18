@@ -3,57 +3,40 @@ devices:
     os: ftd
     type: ftd
     custom:
-      hostname: FTD
       domain: example.com
     credentials:
+      default:
+        username: admin
+        password: Cisco!23
       enable:
-        password: pynet3
+        password: Cisco!23
     connections:
-      telnet:
-        class: lib.connectors.async_telnet_conn.TelnetConnection
-        protocol: telnet
-        ip: 92.81.55.146
-        port: 5012
-        credentials:
-          login:
-            username: admin
-            password: Cisco!23
-      ssh:
-        class: lib.connectors.ssh_conn.SSHConnection
-        protocol: ssh
-        ip: 192.168.200.4
-        port: 22
-        credentials:
-          login:
-            username: admin
-            password: pynet3
-      rest:
-        class: lib.connectors.rest_conn.RESTConnector
-        protocol: https
-        ip: 192.168.200.4
-        port: 443
-        credentials:
-          login:
-            username: admin
-            password: pynet3
-      netmiko:
-        class: .netmiko
-        protocol: ssh
-        ip: 192.168.200.4
-        port: 22
-        credentials:
-          login:
-            username: admin
-            password: pynet3
+#      telnet:
+#        class: lib.connectors.telnet_con.TelnetConnection
+#        protocol: telnet
+#        ip:  92.81.55.146
+#        port: 5063
+#      ssh:
+#        class: lib.connectors.ssh_con.SshConnection
+#        protocol: ssh
+#        ip: 192.168.200.4
+#        port: 22
+#      rest:
+#        class: lib.connectors.rest_con.RESTConnector
+#        protocol: https
+#        ip: 192.168.200.4
+#        port: 443
+#      netmiko:
+#        class: .netmiko
+#        protocol: ssh
+#        ip: 192.168.200.4
+#        port: 22
       swagger:
         class: lib.connectors.swagger_conn.SwaggerConnector
         protocol: https
         ip: 192.168.200.4
         port: 443
-        credentials:
-          login:
-            username: admin
-            password: pynet3
+
 
 topology:
   FTD:
@@ -63,11 +46,11 @@ topology:
         alias: initial
         link: management
         ipv4: 192.168.200.4/24
-      GigabitEthernet1/1:
+      Ethernet1/1:
         type: ethernet
         link: csr_ftd
         ipv4: 192.168.204.4/24
-      GigabitEthernet1/2:
+      Ethernet1/2:
         type: ethernet
         link: ftd_ep2
         ipv4: 192.168.205.4/24
