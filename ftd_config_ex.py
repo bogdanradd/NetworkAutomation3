@@ -69,7 +69,7 @@ class ConfigureFTDManagement(aetest.Testcase):
                                     conn.write(' ')
                                 elif "Please enter 'YES' or press <ENTER> to AGREE to the EULA: " in out:
                                     conn.write('')
-                                    await asyncio.sleep(1)
+                                    await asyncio.sleep(2)
                                     out = await conn.read(n=1000)
                                     break
                                 else:

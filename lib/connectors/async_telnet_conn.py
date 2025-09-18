@@ -51,7 +51,7 @@ class TelnetConnection:
         return await self.reader.read(n)
 
     def write(self, data: str):
-        self.writer.write(data + '\r\n')
+        self.writer.write(data + '\n')
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.write('\n')
