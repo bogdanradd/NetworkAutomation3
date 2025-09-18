@@ -8,7 +8,7 @@ class SwaggerConnector:
 
     def __init__(self, device: Device, **kwargs):
         print('got: ', kwargs)
-        self.device = device
+        self.device: Device = device
         self.client = None
         self.connected = False
         self._session = None
