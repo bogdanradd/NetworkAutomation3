@@ -77,7 +77,7 @@ class ConfigureFTDManagement(aetest.Testcase):
 
                         if 'password:' in out:
                             conn.write(self.tb.devices[device].connections.telnet.credentials.login.password.plaintext)
-                            await asyncio.sleep(1)
+                            await asyncio.sleep(2)
                             out = await conn.read(n=1000)
                             if 'password:' in out:
                                 conn.write(self.tb.devices[device].connections.telnet.credentials.login.password.plaintext)
