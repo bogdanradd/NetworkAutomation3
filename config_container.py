@@ -59,7 +59,7 @@ except Exception as e:
 
 try:
     print("Incoming ping...")
-    ping = subprocess.run(['ping', '-c', '4', '192.168.201.100'],
+    ping = subprocess.run(['ping', '-c', '4', '192.168.200.4'],
                           stdin=subprocess.PIPE,
                           stdout=subprocess.PIPE,
                           stderr=subprocess.PIPE,
