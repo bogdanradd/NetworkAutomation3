@@ -5,7 +5,7 @@ from lib.connectors.async_telnet_conn import TelnetConnection
 import asyncio
 
 HOST = '92.81.55.146'
-PORT = [5104, 5105]
+PORT = [5011, 5005]
 
 def get_current_configs():
     with ParseConfig('iou1_running_config.txt') as config:
@@ -16,27 +16,47 @@ def get_current_configs():
         config.rewrite_file()
 
 async def reset_to_factory(conn: TelnetConnection):
-    conn.write('\n')
+    conn.write('')
+    prompt = await conn.readuntil('#')
+    if '(config' in prompt:
+        conn.write('end')
+        await conn.readuntil('#')
+    conn.write('erase startup-config\n')
     await conn.readuntil('#')
-    conn.write('erase startup-config\n\n')
-    await conn.readuntil('#')
-    conn.write('reload\n\n')
-    time.sleep(10)
-    await conn.connect()
-    conn.write('no\n')
-    conn.write('yes\n')
-    time.sleep(5)
-    conn.write('\n\n')
-    await conn.readuntil('>')
-    conn.write('en\n')
-    await conn.readuntil('#')
+    conn.write('reload')
+    await conn.readuntil('[yes/no]:')
+    conn.write('no')
+    await conn.readuntil('[confirm]')
+    conn.write('')
+    await conn.readuntil('[yes/no]:')
+    conn.write('no')
+    await conn.readuntil('[yes]')
+    conn.write('')
+    time.sleep(15)
 
-get_current_configs()
+async def get_current_config(conn: TelnetConnection):
+    conn.write('')
+    await conn.readuntil('>')
+    conn.write('en')
+    await conn.readuntil('#')
+    conn.write('sh run')
+    out = await conn.read(1000)
+    while '--More--' in out:
+        conn.write(' ')
+        out = await conn.read(1000)
+
+
+
 
 async def main():
+    get_current_configs()
     conn1= TelnetConnection(HOST, PORT[0])
     await conn1.connect()
     await reset_to_factory(conn1)
+    conn2= TelnetConnection(HOST, PORT[1])
+    await conn2.connect()
+    await reset_to_factory(conn2)
+
 
 asyncio.run(main())
 
