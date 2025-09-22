@@ -2,7 +2,7 @@ import re
 
 import urllib3
 from requests.auth import HTTPBasicAuth
-import requests
+from requests import get
 
 
 class RESTConnector:
@@ -29,14 +29,14 @@ class RESTConnector:
     def get_interface(self, name: str):
         endpoint = f'/restconf/data/ietf-interfaces:interfaces/interface={name}'
         url = self._url + endpoint
-        response = requests.get(url=url, auth=self._auth, headers=self._headers, verify=False)
+        response = get(url=url, auth=self._auth, headers=self._headers, verify=False)
         return response.json()
 
 
     def get_restconf_capabilities(self):
         restconf = f'/restconf/data/ietf-yang-library:modules-state'
         url = self._url + restconf
-        response = requests.get(url, auth=self._auth, headers=self._headers, verify=False)
+        response = get(url, auth=self._auth, headers=self._headers, verify=False)
         json_response = response.json()
         all_yang_endpoints = list(
             map(
@@ -49,7 +49,7 @@ class RESTConnector:
     def get_netconf_capabilities(self):
         netconf = f'/restconf/data/netconf-state/capabilities'
         url = self._url + netconf
-        response = requests.get(url, auth=self._auth, headers=self._headers, verify=False)
+        response = get(url, auth=self._auth, headers=self._headers, verify=False)
         json_response = response.json()
         all_netconf_endpoints = list(
             filter(
