@@ -33,8 +33,10 @@ class CommonSetup(aetest.CommonSetup):
         for intf_name, intf in server.interfaces.items():
             # intf = server.interfaces[interface]
             with steps.start(f'Bring up interface {intf_name}'):
-                subprocess.run(['sudo', 'ip', 'addr', 'add', f'{intf.ipv4}', 'dev', f'{intf_name}'])
-                subprocess.run(['sudo', 'ip', 'link', 'set', 'dev', f'{intf_name}', 'up'])
+                subprocess.run(['sudo', 'ip', 'addr', 'add', f'{intf.ipv4}', 'dev', f'{intf_name}'],
+                               check=True)
+                subprocess.run(['sudo', 'ip', 'link', 'set', 'dev', f'{intf_name}', 'up'],
+                               check=True)
 
         with steps.start('Adding routes'):
             for device in self.tb.devices:
@@ -45,7 +47,11 @@ class CommonSetup(aetest.CommonSetup):
                     if self.tb.devices[device].interfaces[interface].link.name == 'management':
                         continue
                     subnet = self.tb.devices[device].interfaces[interface].ipv4.network.compressed
-                    subprocess.run(['sudo', 'ip', 'route', 'add', f'{subnet}', 'via', f'{gateway}'])
+                    try:
+                        subprocess.run(['sudo', 'ip', 'route', 'add', f'{subnet}', 'via', f'{gateway}'],
+                                    check=True)
+                    except:
+                        print('This route already exists')
 
     @aetest.subsection
     def configure_ssh(self, steps):
