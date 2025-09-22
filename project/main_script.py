@@ -1,29 +1,31 @@
+"""DOCSTRING : explicatii module:
+This test will configure the FTD interfaces...
+"""
 import re
 import time
-
-from pyats import aetest, topology
 import subprocess
-from pyats.datastructures import AttrDict
 import sys
 import asyncio
-
-from lib.connectors.ssh_conn import SSHConnection
-from lib.connectors.swagger_conn import SwaggerConnector
+from pyats import aetest, topology
+from pyats.datastructures import AttrDict
 from ssh_config import commands
 from int_config import add_ips
 from ospf_config import ospf_commands
 from ssh_acl import acl_commands
+from lib.connectors.ssh_conn import SSHConnection
+from lib.connectors.swagger_conn import SwaggerConnector
 from lib.connectors.async_telnet_conn import TelnetConnection
 
 obj = AttrDict()
 print(sys.path)
+
 
 class CommonSetup(aetest.CommonSetup):
     @aetest.subsection
     def load_testbed(self, steps):
         with steps.start('Loading testbed'):
             self.tb = topology.loader.load('main_testbed.yaml')
-            self.parent.parameters.update(tb = self.tb)
+            self.parent.parameters.update(tb=self.tb)
 
     @aetest.subsection
     def bring_up_server_interface(self, steps):
@@ -45,8 +47,6 @@ class CommonSetup(aetest.CommonSetup):
                     subnet = self.tb.devices[device].interfaces[interface].ipv4.network.compressed
                     subprocess.run(['sudo', 'ip', 'route', 'add', f'{subnet}', 'via', f'{gateway}'])
 
-
-
     @aetest.subsection
     def configure_ssh(self, steps):
         for device in self.tb.devices:
@@ -57,28 +57,32 @@ class CommonSetup(aetest.CommonSetup):
                     if self.tb.devices[device].interfaces[interface].link.name != 'management':
                         continue
                     intf_obj = self.tb.devices[device].interfaces[interface]
-                    conn_class = self.tb.devices[device].connections.get('telnet', {}).get('class', None)
+                    conn_class = self.tb.devices[device].connections.get(
+                        'telnet', {}
+                    ).get('class', None)
                     assert conn_class, 'No connection for device {}'.format(device)
                     ip = self.tb.devices[device].connections.telnet.ip.compressed
                     port = self.tb.devices[device].connections.telnet.port
 
                     formatted_commands = list(map(
                         lambda s: s.format(
-                            interface = interface,
-                            ip = intf_obj.ipv4.ip.compressed,
-                            sm = intf_obj.ipv4.netmask.exploded,
-                            hostname = device,
-                            domain = self.tb.devices[device].custom.get('domain', None),
-                            username = self.tb.devices[device].connections.ssh.credentials.login.username,
-                            password = self.tb.devices[device].connections.ssh.credentials.login.password.plaintext,
+                            interface=interface,
+                            ip=intf_obj.ipv4.ip.compressed,
+                            sm=intf_obj.ipv4.netmask.exploded,
+                            hostname=device,
+                            domain=self.tb.devices[device].custom.get('domain', None),
+                            username=self.tb.devices[device].connections.ssh.credentials.login.username,
+                            password=self.tb.devices[device].connections.ssh.credentials.login.password.plaintext,
                         ),
                         commands
                     ))
                     conn: TelnetConnection = conn_class(ip, port)
+
                     async def conf():
                         await conn.connect()
                         time.sleep(1)
                         await conn.execute_commands(formatted_commands, '#')
+
                     asyncio.run(conf())
 
     # @aetest.subsection
@@ -208,11 +212,11 @@ class CommonSetup(aetest.CommonSetup):
                     conn.connect()
                     formatted_commands = list(map
                         (
-                            lambda s: s.format(
-                                interface = interface,
-                                ip = intf_obj.ipv4.ip.compressed,
-                                sm = intf_obj.ipv4.netmask.exploded,
-                    ), add_ips))
+                        lambda s: s.format(
+                            interface=interface,
+                            ip=intf_obj.ipv4.ip.compressed,
+                            sm=intf_obj.ipv4.netmask.exploded,
+                        ), add_ips))
                     print(conn.send_config_set(formatted_commands))
                     conn.close()
 
@@ -230,9 +234,9 @@ class CommonSetup(aetest.CommonSetup):
                     conn.connect()
                     formatted_commands = list(map
                         (
-                            lambda s: s.format(
-                                interface = interface
-                    ), ospf_commands))
+                        lambda s: s.format(
+                            interface=interface
+                        ), ospf_commands))
                     print(conn.send_config_set(formatted_commands))
                     conn.close()
             with steps.start(f'Configuring SSH ACL on {device}', continue_=True):
@@ -248,11 +252,10 @@ class CommonSetup(aetest.CommonSetup):
                 formatted_commands = list(map
                     (
                     lambda s: s.format(
-                        ssh_container = self.tb.devices['UbuntuServer'].interfaces['ens4'].ipv4.ip.compressed
+                        ssh_container=self.tb.devices['UbuntuServer'].interfaces['ens4'].ipv4.ip.compressed
                     ), acl_commands))
                 print(conn.send_config_set(formatted_commands))
                 conn.close()
-
 
     # @aetest.subsection
     # def configure_via_swagger_FTD(self, steps):
