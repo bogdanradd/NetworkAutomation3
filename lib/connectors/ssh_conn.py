@@ -1,10 +1,12 @@
-import time
 
 from netmiko import ConnectHandler
 
 
 HOST = '192.168.100.1'
 PORT = 22
+
+def render_commands(templates, **kwargs):
+    return [str(t).format(**kwargs) for t in templates]
 
 class SSHConnection:
 
@@ -34,14 +36,9 @@ class SSHConnection:
     def send_config_set(self, commands: list):
         return self.conn.send_config_set(commands)
 
-    def configure_other_interfaces(self):
-        pass
-
-    def configure_ospf(self):
-        pass
-
-    def configure_ssh_acl(self):
-        pass
+    def configure(self, templates, **kwargs):
+        commands = render_commands(templates, **kwargs)
+        return self.send_config_set(commands)
 
 
 

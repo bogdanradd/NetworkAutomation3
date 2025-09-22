@@ -64,3 +64,4 @@ class SwaggerConnector:
             config={'validate_certificate': False, 'validate_responses': False},
         )
         return self.client
+
