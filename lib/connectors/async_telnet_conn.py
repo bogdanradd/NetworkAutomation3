@@ -51,7 +51,7 @@ class TelnetConnection:
         return await self.reader.read(n)
 
     def write(self, data: str):
-        self.writer.write(data + '\n')
+        self.writer.write(data + '\r\n')
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.write('\n')
@@ -60,48 +60,27 @@ class TelnetConnection:
         with open(path, 'r') as f:
             for line in f.readlines():
                 command = line.strip()
-                self.write(command + '\n')
+                self.write(command + '\r\n')
                 out = await self.readuntil('#')
                 print(out)
 
-    async def execute_commands(self, command: list, prompt: str):
+    async def execute_commands(self, command: list, prompt):
+        self.write('')
+        time.sleep(1)
+        init_prompt = await self.read(n = 500)
+        if '>' in init_prompt:
+            self.write('en')
+            await self.readuntil('#')
         for cmd in command:
-            self.write(cmd + '\n')
+            self.write(cmd)
             await self.readuntil(prompt)
 
 
 
+
     async def configure(self, completed: Queue = None, j2_file = "set_ips.j2"):
-        self.write('\n')
-        await self.readuntil('#')
+        pass
 
-        self.write('conf t\n')
-        prompt = await self.readuntil('(config)#')
-
-        env = Environment(loader=FileSystemLoader('templates'))
-        template = env.get_template(j2_file)
-
-
-        if "IOU" in prompt:
-            with open("IOU.txt", "w") as f:
-                f.write(template.render(IOU_CONFIG))
-
-            await self.apply_config("IOU.txt")
-            # completed.put({"IOU1": "192.168.100.1"})
-
-        elif "IOSV" in prompt:
-            with open("IOS.txt", "w") as f:
-                f.write(template.render(IOS_CONFIG))
-
-            await self.apply_config("IOS.txt")
-
-        elif "Router" in prompt:
-            with open("CSR.txt", "w") as f:
-                f.write(template.render(CSR_CONFIG))
-
-            await self.apply_config("CSR.txt")
-
-            # completed.put({"Router": "192.168.100.2"})
 
 
 if __name__ == '__main__':

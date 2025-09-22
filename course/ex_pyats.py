@@ -6,8 +6,7 @@ from pyats.datastructures import AttrDict
 import sys
 import asyncio
 
-from lib.connectors.rest_conn import RESTConnector
-from ssh_config import commands
+from project.ssh_config import commands
 
 from lib.connectors.async_telnet_conn import TelnetConnection
 from lib.connectors.rest_conn import RESTConnector
