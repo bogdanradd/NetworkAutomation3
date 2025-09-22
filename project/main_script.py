@@ -8,34 +8,41 @@ import sys
 import asyncio
 from pyats import aetest, topology
 from pyats.datastructures import AttrDict
+from lib.connectors.ssh_conn import SSHConnection
+from lib.connectors.swagger_conn import SwaggerConnector
+from lib.connectors.async_telnet_conn import TelnetConnection
 from ssh_config import commands
 from int_config import add_ips
 from ospf_config import ospf_commands
 from ssh_acl import acl_commands
-from lib.connectors.ssh_conn import SSHConnection
-from lib.connectors.swagger_conn import SwaggerConnector
-from lib.connectors.async_telnet_conn import TelnetConnection
+
 
 obj = AttrDict()
 print(sys.path)
 
 
 class CommonSetup(aetest.CommonSetup):
+    """This class is used as a general class. It contains every method used to configure all devices."""
     @aetest.subsection
     def load_testbed(self, steps):
+        """This method loads the testbed that provides details about whole topology."""
         with steps.start('Loading testbed'):
             self.tb = topology.loader.load('main_testbed.yaml')
             self.parent.parameters.update(tb=self.tb)
 
     @aetest.subsection
     def bring_up_server_interface(self, steps):
+        """This method adds an IP address and some routes to the container"""
         server = self.tb.devices['UbuntuServer']
         for intf_name, intf in server.interfaces.items():
             # intf = server.interfaces[interface]
             with steps.start(f'Bring up interface {intf_name}'):
-                subprocess.run(['sudo', 'ip', 'addr', 'add', f'{intf.ipv4}', 'dev', f'{intf_name}'],
+                subprocess.run(['sudo', 'ip', 'addr', 'add',
+                                f'{intf.ipv4}',
+                                'dev', f'{intf_name}'],
                                check=True)
-                subprocess.run(['sudo', 'ip', 'link', 'set', 'dev', f'{intf_name}', 'up'],
+                subprocess.run(['sudo', 'ip', 'link', 'set', 'dev',
+                                f'{intf_name}', 'up'],
                                check=True)
 
         with steps.start('Adding routes'):
@@ -48,13 +55,16 @@ class CommonSetup(aetest.CommonSetup):
                         continue
                     subnet = self.tb.devices[device].interfaces[interface].ipv4.network.compressed
                     try:
-                        subprocess.run(['sudo', 'ip', 'route', 'add', f'{subnet}', 'via', f'{gateway}'],
+                        subprocess.run(['sudo', 'ip', 'route', 'add',
+                                        f'{subnet}',
+                                        'via', f'{gateway}'],
                                     check=True)
-                    except:
-                        print('This route already exists')
+                    except Exception as e:
+                        print(e)
 
     @aetest.subsection
     def configure_ssh(self, steps):
+        """This method configures the SSH connection."""
         for device in self.tb.devices:
             if self.tb.devices[device].custom.role != 'router':
                 continue
@@ -66,7 +76,7 @@ class CommonSetup(aetest.CommonSetup):
                     conn_class = self.tb.devices[device].connections.get(
                         'telnet', {}
                     ).get('class', None)
-                    assert conn_class, 'No connection for device {}'.format(device)
+                    assert conn_class, f'No connection for device {device}'
                     ip = self.tb.devices[device].connections.telnet.ip.compressed
                     port = self.tb.devices[device].connections.telnet.port
 
@@ -77,8 +87,10 @@ class CommonSetup(aetest.CommonSetup):
                             sm=intf_obj.ipv4.netmask.exploded,
                             hostname=device,
                             domain=self.tb.devices[device].custom.get('domain', None),
-                            username=self.tb.devices[device].connections.ssh.credentials.login.username,
-                            password=self.tb.devices[device].connections.ssh.credentials.login.password.plaintext,
+                            username=self.tb.devices[device].connections.
+                            ssh.credentials.login.username,
+                            password=self.tb.devices[device].connections.
+                            ssh.credentials.login.password.plaintext,
                         ),
                         commands
                     ))
@@ -96,15 +108,18 @@ class CommonSetup(aetest.CommonSetup):
     #     for device in self.tb.devices:
     #         if self.tb.devices[device].custom.role != 'firewall':
     #             continue
-    #         with steps.start(f'Bringing up management interface on {device}', continue_=True) as step:  # type: Step
+    #         with steps.start(f'Bringing up management interface on {device}',
+    #         continue_=True) as step:  # type: Step
     #             for interface in self.tb.devices[device].interfaces:
     #                 if self.tb.devices[device].interfaces[interface].link.name != 'management':
     #                     continue
     #
     #                 intf_obj = self.tb.devices[device].interfaces[interface]
     #                 hostname = self.tb.devices[device].custom.hostname
-    #                 gateway = self.tb.devices['UbuntuServer'].interfaces['ens4'].ipv4.ip.compressed
-    #                 conn_class = self.tb.devices[device].connections.get('telnet', {}).get('class',None)
+    #                 gateway = self.tb.devices['UbuntuServer'].
+    #                 interfaces['ens4'].ipv4.ip.compressed
+    #                 conn_class = self.tb.devices[device].connections.
+    #                 get('telnet', {}).get('class',None)
     #                 assert conn_class, 'No connection for device {}'.format(device)
     #                 ip = self.tb.devices[device].connections.telnet.ip.compressed
     #                 port = self.tb.devices[device].connections.telnet.port
@@ -199,6 +214,7 @@ class CommonSetup(aetest.CommonSetup):
 
     @aetest.subsection
     def configure_via_ssh(self, steps):
+        """This method configures the devices through SSH."""
         for device in self.tb.devices:
             if self.tb.devices[device].custom.role != 'router':
                 continue
@@ -207,13 +223,17 @@ class CommonSetup(aetest.CommonSetup):
                     if self.tb.devices[device].interfaces[interface].link.name == 'management':
                         continue
                     intf_obj = self.tb.devices[device].interfaces[interface]
-                    conn_class = self.tb.devices[device].connections.get('ssh', {}).get('class', None)
-                    assert conn_class, 'No connection for device {}'.format(device)
+                    conn_class = self.tb.devices[device].connections.get(
+                        'ssh', {}).get(
+                        'class', None)
+                    assert conn_class, f'No connection for device {device}'
                     conn: SSHConnection = conn_class(
                         host=str(self.tb.devices[device].connections.ssh['ip']),
                         port=str(self.tb.devices[device].connections.ssh['port']),
-                        username=self.tb.devices[device].connections.ssh.credentials.login['username'],
-                        password=self.tb.devices[device].connections.ssh.credentials.login['password'].plaintext)
+                        username=self.tb.devices[device].connections.
+                        ssh.credentials.login['username'],
+                        password=self.tb.devices[device].connections.
+                        ssh.credentials.login['password'].plaintext)
 
                     conn.connect()
                     formatted_commands = list(map
@@ -229,13 +249,17 @@ class CommonSetup(aetest.CommonSetup):
             with steps.start(f'Configuring OSPF on {device}', continue_=True):
                 for interface in self.tb.devices[device].interfaces:
                     intf_obj = self.tb.devices[device].interfaces[interface]
-                    conn_class = self.tb.devices[device].connections.get('ssh', {}).get('class', None)
-                    assert conn_class, 'No connection for device {}'.format(device)
+                    conn_class = self.tb.devices[device].connections.get(
+                        'ssh', {}).get(
+                        'class', None)
+                    assert conn_class, f'No connection for device {device}'
                     conn: SSHConnection = conn_class(
                         host=str(self.tb.devices[device].connections.ssh['ip']),
                         port=str(self.tb.devices[device].connections.ssh['port']),
-                        username=self.tb.devices[device].connections.ssh.credentials.login['username'],
-                        password=self.tb.devices[device].connections.ssh.credentials.login['password'].plaintext)
+                        username=self.tb.devices[device].connections.
+                        ssh.credentials.login['username'],
+                        password=self.tb.devices[device].connections.
+                        ssh.credentials.login['password'].plaintext)
 
                     conn.connect()
                     formatted_commands = list(map
@@ -246,19 +270,24 @@ class CommonSetup(aetest.CommonSetup):
                     print(conn.send_config_set(formatted_commands))
                     conn.close()
             with steps.start(f'Configuring SSH ACL on {device}', continue_=True):
-                conn_class = self.tb.devices[device].connections.get('ssh', {}).get('class', None)
-                assert conn_class, 'No connection for device {}'.format(device)
+                conn_class = self.tb.devices[device].connections.get(
+                    'ssh', {}).get(
+                    'class', None)
+                assert conn_class, f'No connection for device {device}'
                 conn: SSHConnection = conn_class(
                     host=str(self.tb.devices[device].connections.ssh['ip']),
                     port=str(self.tb.devices[device].connections.ssh['port']),
-                    username=self.tb.devices[device].connections.ssh.credentials.login['username'],
-                    password=self.tb.devices[device].connections.ssh.credentials.login['password'].plaintext)
+                    username=self.tb.devices[device].connections.
+                    ssh.credentials.login['username'],
+                    password=self.tb.devices[device].connections.
+                    ssh.credentials.login['password'].plaintext)
 
                 conn.connect()
                 formatted_commands = list(map
                     (
                     lambda s: s.format(
-                        ssh_container=self.tb.devices['UbuntuServer'].interfaces['ens4'].ipv4.ip.compressed
+                        ssh_container=self.tb.devices['UbuntuServer'].
+                        interfaces['ens4'].ipv4.ip.compressed
                     ), acl_commands))
                 print(conn.send_config_set(formatted_commands))
                 conn.close()
