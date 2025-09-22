@@ -40,8 +40,8 @@ class SwaggerConnector:
             verify=False,
             data=json.dumps(
                 {
-                'username': self.device.credentials.default.username,
-                'password': self.device.credentials.default.password.plaintext,
+                'username': self.device.connections.telnet.credentials.login.username,
+                'password': self.device.connections.telnet.credentials.login.password.plaintext,
                 'grant_type': 'password',
                 }
             )

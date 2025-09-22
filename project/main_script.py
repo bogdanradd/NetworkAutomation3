@@ -6,7 +6,13 @@ import subprocess
 from pyats.datastructures import AttrDict
 import sys
 import asyncio
+
+from lib.connectors.ssh_conn import SSHConnection
+from lib.connectors.swagger_conn import SwaggerConnector
 from ssh_config import commands
+from int_config import add_ips
+from ospf_config import ospf_commands
+from ssh_acl import acl_commands
 from lib.connectors.async_telnet_conn import TelnetConnection
 
 obj = AttrDict()
@@ -15,7 +21,7 @@ print(sys.path)
 class CommonSetup(aetest.CommonSetup):
     @aetest.subsection
     def load_testbed(self, steps):
-        with steps.start('Load testbed'):
+        with steps.start('Loading testbed'):
             self.tb = topology.loader.load('main_testbed.yaml')
             self.parent.parameters.update(tb = self.tb)
 
@@ -29,7 +35,6 @@ class CommonSetup(aetest.CommonSetup):
                 subprocess.run(['sudo', 'ip', 'link', 'set', 'dev', f'{intf_name}', 'up'])
 
         with steps.start('Adding routes'):
-            subnets = set()
             for device in self.tb.devices:
                 if self.tb.devices[device].type != 'router':
                     continue
@@ -39,6 +44,7 @@ class CommonSetup(aetest.CommonSetup):
                         continue
                     subnet = self.tb.devices[device].interfaces[interface].ipv4.network.compressed
                     subprocess.run(['sudo', 'ip', 'route', 'add', f'{subnet}', 'via', f'{gateway}'])
+
 
 
     @aetest.subsection
@@ -75,111 +81,269 @@ class CommonSetup(aetest.CommonSetup):
                         await conn.execute_commands(formatted_commands, '#')
                     asyncio.run(conf())
 
+    # @aetest.subsection
+    # def bring_up_FTD_interface(self, steps):
+    #     for device in self.tb.devices:
+    #         if self.tb.devices[device].custom.role != 'firewall':
+    #             continue
+    #         with steps.start(f'Bringing up management interface on {device}', continue_=True) as step:  # type: Step
+    #             for interface in self.tb.devices[device].interfaces:
+    #                 if self.tb.devices[device].interfaces[interface].link.name != 'management':
+    #                     continue
+    #
+    #                 intf_obj = self.tb.devices[device].interfaces[interface]
+    #                 hostname = self.tb.devices[device].custom.hostname
+    #                 gateway = self.tb.devices['UbuntuServer'].interfaces['ens4'].ipv4.ip.compressed
+    #                 conn_class = self.tb.devices[device].connections.get('telnet', {}).get('class',None)
+    #                 assert conn_class, 'No connection for device {}'.format(device)
+    #                 ip = self.tb.devices[device].connections.telnet.ip.compressed
+    #                 port = self.tb.devices[device].connections.telnet.port
+    #                 conn: TelnetConnection = conn_class(ip, port)
+    #
+    #                 async def setup():
+    #                     await conn.connect()
+    #                     time.sleep(1)
+    #                     conn.write('')
+    #                     time.sleep(1)
+    #                     out = await conn.read(n=1000)
+    #                     time.sleep(1)
+    #                     print(out)
+    #                     result = re.search(r'^\s*(?P<login>firepower login:)', out)
+    #                     if not result:
+    #                         step.skipped(reason='Configuration not required')
+    #                     if result.group('login'):
+    #                         conn.write('admin')
+    #                         time.sleep(1)
+    #                         conn.write('Admin123')
+    #                         time.sleep(5)
+    #
+    #                     out = await conn.read(n=1000)
+    #                     time.sleep(1)
+    #                     if 'Press <ENTER> to display the EULA: ' in out:
+    #                         conn.write('')
+    #                         while True:
+    #                             time.sleep(1)
+    #                             out = await conn.read(n=1000)
+    #                             if '--More--' in out:
+    #                                 conn.write(' ')
+    #                             elif "Please enter 'YES' or press <ENTER> to AGREE to the EULA: " in out:
+    #                                 conn.write('')
+    #                                 time.sleep(2)
+    #                                 out = await conn.read(n=1000)
+    #                                 break
+    #                             else:
+    #                                 print('No string found in output')
+    #
+    #                     if 'password:' in out:
+    #                         conn.write(self.tb.devices[device].connections.telnet.credentials.login.password.plaintext)
+    #                         time.sleep(2)
+    #                         out = await conn.read(n=1000)
+    #                         if 'password:' in out:
+    #                             conn.write(self.tb.devices[device].connections.telnet.credentials.login.password.plaintext)
+    #                             time.sleep(3)
+    #                             out = await conn.read(n=1000)
+    #
+    #                     if 'IPv4? (y/n) [y]:' in out:
+    #                         conn.write('')
+    #                         time.sleep(1)
+    #                         out = await conn.read(n=1000)
+    #                     if 'IPv6? (y/n) [n]:' in out:
+    #                         conn.write('')
+    #                         time.sleep(1)
+    #                         out = await conn.read(n=1000)
+    #                     # result = re.search(r' DHCP or manually? (dhcp/manual) ...:')
+    #                     if '[manual]:' in out:
+    #                         conn.write('')
+    #                         time.sleep(1)
+    #                         out = await conn.read(n=1000)
+    #                     if '[192.168.45.45]:' in out:
+    #                         conn.write(intf_obj.ipv4.ip.compressed)
+    #                         time.sleep(1)
+    #                         out = await conn.read(n=1000)
+    #                     if '[255.255.255.0]:' in out:
+    #                         conn.write(intf_obj.ipv4.netmask.exploded)
+    #                         time.sleep(1)
+    #                         out = await conn.read(n=1000)
+    #                     if '[192.168.45.1]:' in out:
+    #                         conn.write(gateway)
+    #                         time.sleep(1)
+    #                         out = await conn.read(n=1000)
+    #                     if '[firepower]:' in out:
+    #                         conn.write(hostname)
+    #                         time.sleep(1)
+    #                         out = await conn.read(n=1000)
+    #                     if '::35]:' in out:
+    #                         conn.write(gateway)
+    #                         time.sleep(1)
+    #                         out = await conn.read(n=1000)
+    #                     if "'none' []:" in out:
+    #                         conn.write('')
+    #                         time.sleep(10)
+    #                         out = await conn.read(n=1000)
+    #                     if 'Manage the device locally? (yes/no) [yes]:' in out:
+    #                         conn.write('')
+    #                         time.sleep(1)
+    #                         out = await conn.read(n=1000)
+    #
+    #                 asyncio.run(setup())
+
     @aetest.subsection
-    def bring_up_router_interface(self, steps):
+    def configure_via_ssh(self, steps):
         for device in self.tb.devices:
-            if self.tb.devices[device].custom.role != 'firewall':
+            if self.tb.devices[device].custom.role != 'router':
                 continue
-            with steps.start(f'Bringing up management interface on {device}', continue_=True) as step:  # type: Step
+            with steps.start(f'Connecting via SSH on {device}', continue_=True):
                 for interface in self.tb.devices[device].interfaces:
-                    if self.tb.devices[device].interfaces[interface].link.name != 'management':
+                    if self.tb.devices[device].interfaces[interface].link.name == 'management':
                         continue
-
                     intf_obj = self.tb.devices[device].interfaces[interface]
-                    hostname = self.tb.devices[device].custom.hostname
-                    gateway = self.tb.devices['UbuntuServer'].interfaces['ens4'].ipv4.ip.compressed
-                    conn_class = self.tb.devices[device].connections.get('telnet', {}).get('class',None)
+                    conn_class = self.tb.devices[device].connections.get('ssh', {}).get('class', None)
                     assert conn_class, 'No connection for device {}'.format(device)
-                    ip = self.tb.devices[device].connections.telnet.ip.compressed
-                    port = self.tb.devices[device].connections.telnet.port
-                    conn: TelnetConnection = conn_class(ip, port)
+                    conn: SSHConnection = conn_class(
+                        host=str(self.tb.devices[device].connections.ssh['ip']),
+                        port=str(self.tb.devices[device].connections.ssh['port']),
+                        username=self.tb.devices[device].connections.ssh.credentials.login['username'],
+                        password=self.tb.devices[device].connections.ssh.credentials.login['password'].plaintext)
 
-                    async def setup():
-                        await conn.connect()
-                        await asyncio.sleep(1)
-                        conn.write('')
-                        await asyncio.sleep(1)
-                        out = await conn.read(n=1000)
-                        await asyncio.sleep(1)
-                        print(out)
-                        result = re.search(r'^\s*(?P<login>firepower login:)', out)
-                        if not result:
-                            step.skipped(reason='Configuration not required')
-                        if result.group('login'):
-                            conn.write('admin')
-                            await asyncio.sleep(1)
-                            conn.write('Admin123')
-                            await asyncio.sleep(5)
+                    conn.connect()
+                    formatted_commands = list(map
+                        (
+                            lambda s: s.format(
+                                interface = interface,
+                                ip = intf_obj.ipv4.ip.compressed,
+                                sm = intf_obj.ipv4.netmask.exploded,
+                    ), add_ips))
+                    print(conn.send_config_set(formatted_commands))
+                    conn.close()
 
-                        out = await conn.read(n=1000)
-                        await asyncio.sleep(1)
-                        if 'Press <ENTER> to display the EULA: ' in out:
-                            conn.write('')
-                            while True:
-                                await asyncio.sleep(1)
-                                out = await conn.read(n=1000)
-                                if '--More--' in out:
-                                    conn.write(' ')
-                                elif "Please enter 'YES' or press <ENTER> to AGREE to the EULA: " in out:
-                                    conn.write('')
-                                    await asyncio.sleep(2)
-                                    out = await conn.read(n=1000)
-                                    break
-                                else:
-                                    print('No string found in output')
+            with steps.start(f'Configuring OSPF on {device}', continue_=True):
+                for interface in self.tb.devices[device].interfaces:
+                    intf_obj = self.tb.devices[device].interfaces[interface]
+                    conn_class = self.tb.devices[device].connections.get('ssh', {}).get('class', None)
+                    assert conn_class, 'No connection for device {}'.format(device)
+                    conn: SSHConnection = conn_class(
+                        host=str(self.tb.devices[device].connections.ssh['ip']),
+                        port=str(self.tb.devices[device].connections.ssh['port']),
+                        username=self.tb.devices[device].connections.ssh.credentials.login['username'],
+                        password=self.tb.devices[device].connections.ssh.credentials.login['password'].plaintext)
 
-                        if 'password:' in out:
-                            conn.write(self.tb.devices[device].connections.telnet.credentials.login.password.plaintext)
-                            await asyncio.sleep(2)
-                            out = await conn.read(n=1000)
-                            if 'password:' in out:
-                                conn.write(self.tb.devices[device].connections.telnet.credentials.login.password.plaintext)
-                                await asyncio.sleep(2)
-                                out = await conn.read(n=1000)
+                    conn.connect()
+                    formatted_commands = list(map
+                        (
+                            lambda s: s.format(
+                                interface = interface
+                    ), ospf_commands))
+                    print(conn.send_config_set(formatted_commands))
+                    conn.close()
+            with steps.start(f'Configuring SSH ACL on {device}', continue_=True):
+                conn_class = self.tb.devices[device].connections.get('ssh', {}).get('class', None)
+                assert conn_class, 'No connection for device {}'.format(device)
+                conn: SSHConnection = conn_class(
+                    host=str(self.tb.devices[device].connections.ssh['ip']),
+                    port=str(self.tb.devices[device].connections.ssh['port']),
+                    username=self.tb.devices[device].connections.ssh.credentials.login['username'],
+                    password=self.tb.devices[device].connections.ssh.credentials.login['password'].plaintext)
 
-                        if 'IPv4? (y/n) [y]:' in out:
-                            conn.write('')
-                            await asyncio.sleep(1)
-                            out = await conn.read(n=1000)
-                        if 'IPv6? (y/n) [n]:' in out:
-                            conn.write('')
-                            await asyncio.sleep(1)
-                            out = await conn.read(n=1000)
-                        # result = re.search(r' DHCP or manually? (dhcp/manual) ...:')
-                        if '[manual]:' in out:
-                            conn.write('')
-                            await asyncio.sleep(1)
-                            out = await conn.read(n=1000)
-                        if '[192.168.45.45]:' in out:
-                            conn.write(intf_obj.ipv4.ip.compressed)
-                            await asyncio.sleep(1)
-                            out = await conn.read(n=1000)
-                        if '[255.255.255.0]:' in out:
-                            conn.write(intf_obj.ipv4.netmask.exploded)
-                            await asyncio.sleep(1)
-                            out = await conn.read(n=1000)
-                        if '[192.168.45.1]:' in out:
-                            conn.write(gateway)
-                            await asyncio.sleep(1)
-                            out = await conn.read(n=1000)
-                        if '[firepower]:' in out:
-                            conn.write(hostname)
-                            await asyncio.sleep(1)
-                            out = await conn.read(n=1000)
-                        if '::35]:' in out:
-                            conn.write(gateway)
-                            await asyncio.sleep(1)
-                            out = await conn.read(n=1000)
-                        if "'none' []:" in out:
-                            conn.write('')
-                            await asyncio.sleep(5)
-                            out = await conn.read(n=1000)
-                        if 'Manage the device locally? (yes/no) [yes]:' in out:
-                            conn.write('')
-                            await asyncio.sleep(1)
-                            out = await conn.read(n=1000)
+                conn.connect()
+                formatted_commands = list(map
+                    (
+                    lambda s: s.format(
+                        ssh_container = self.tb.devices['UbuntuServer'].interfaces['ens4'].ipv4.ip.compressed
+                    ), acl_commands))
+                print(conn.send_config_set(formatted_commands))
+                conn.close()
 
-                    asyncio.run(setup())
+
+    # @aetest.subsection
+    # def configure_via_swagger_FTD(self, steps):
+    #     with steps.start("Connecting  via swagger"):
+    #         for device in self.tb.devices:
+    #             if self.tb.devices[device].custom.role != 'firewall':
+    #                 continue
+    #             if "swagger" not in self.tb.devices[device].connections:
+    #                 continue
+    #             connection: SwaggerConnector = self.tb.devices[device].connect(via = 'swagger')
+    #             print(connection)
+    #             swagger = connection.get_swagger_client()
+    #             if not swagger:
+    #                 self.failed('No swagger connection')
+    #             print(swagger)
+    #
+    #     # with steps.start("Delete existing DHCP server"):
+    #     #         dhcp_servers = swagger.DHCPServerContainer.getDHCPServerContainerList().result()
+    #     #         for dhcp_server in dhcp_servers['items']:
+    #     #             dhcp_serv_list = dhcp_server['servers']
+    #     #             print(dhcp_serv_list)
+    #     #             dhcp_server.servers = []
+    #     #             response = swagger.DHCPServerContainer.editDHCPServerContainer(
+    #     #                 objId=dhcp_server.id,
+    #     #                 body = dhcp_server,
+    #     #             ).result()
+    #     #             print(response)
+    #
+    #     with steps.start('Configuring FTD Interfaces'):
+    #         existing_interfaces = swagger.Interface.getPhysicalInterfaceList().result()
+    #         ftd_ep2 = connection.device.interfaces['ftd_ep2']
+    #         csr_ftd = connection.device.interfaces['csr_ftd']
+    #         for interface in existing_interfaces['items']:
+    #             if interface.hardwareName == csr_ftd.name:
+    #                 interface.ipv4.ipAddress.ipAddress = csr_ftd.ipv4.ip.compressed
+    #                 interface.ipv4.ipAddress.netmask = csr_ftd.ipv4.netmask.exploded
+    #                 interface.ipv4.dhcp = False
+    #                 interface.ipv4.ipType = 'STATIC'
+    #                 interface.enable = True
+    #                 interface.name = csr_ftd.alias
+    #                 response = swagger.Interface.editPhysicalInterface(
+    #                     objId=interface.id,
+    #                     body=interface,
+    #                 ).result()
+    #                 print(response)
+    #
+    #             if interface.hardwareName == ftd_ep2.name:
+    #                 interface.ipv4.ipAddress.ipAddress = ftd_ep2.ipv4.ip.compressed
+    #                 interface.ipv4.ipAddress.netmask = ftd_ep2.ipv4.netmask.exploded
+    #                 interface.ipv4.dhcp = False
+    #                 interface.ipv4.ipType = 'STATIC'
+    #                 interface.enable = True
+    #                 interface.name = ftd_ep2.alias
+    #                 response = swagger.Interface.editPhysicalInterface(
+    #                     objId=interface.id,
+    #                     body=interface,
+    #                 ).result()
+    #                 interface_for_dhcp = interface
+    #                 print(response)
+    #     # with steps.start("Configure new DHCP server"):
+    #     #     dhcp_servers = swagger.DHCPServerContainer.getDHCPServerContainerList().result()
+    #     #     for dhcp_server in dhcp_servers['items']:
+    #     #         dhcp_serv_list = dhcp_server['servers']
+    #     #         print(dhcp_serv_list)
+    #     #         dhcp_server_model = swagger.get_model('DHCPServer')
+    #     #         interface_ref_model = swagger.get_model('ReferenceModel')
+    #     #         dhcp_server.servers = [
+    #     #             dhcp_server_model(
+    #     #                 addressPool='192.168.205.100-192.168.205.200',
+    #     #                 enableDHCP=True,
+    #     #                 interface=interface_ref_model(
+    #     #                     # hardwareName=interface_for_dhcp.hardwareName,
+    #     #                     id=interface_for_dhcp.id,
+    #     #                     name=interface_for_dhcp.name,
+    #     #                     type='physicalinterface',
+    #     #                     # version='be5gwpeongcmt'
+    #     #                 ),
+    #     #                 type='dhcpserver'
+    #     #             )
+    #     #         ]
+    #     #         response = swagger.DHCPServerContainer.editDHCPServerContainer(
+    #     #             objId=dhcp_server.id,
+    #     #             body=dhcp_server,
+    #     #         ).result()
+    #     #         print(response)
+    #
+    #     with steps.start("Adding routes to FTD"):
+    #         pass
+    #
+    #     with steps.start("Adding allow rule"):
+    #         pass
 
 
 if __name__ == '__main__':
