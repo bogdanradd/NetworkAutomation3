@@ -56,13 +56,6 @@ class TelnetConnection:
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.write('\n')
 
-    async def apply_config(self, path: str):
-        with open(path, 'r') as f:
-            for line in f.readlines():
-                command = line.strip()
-                self.write(command + '\r\n')
-                out = await self.readuntil('#')
-                print(out)
 
     async def execute_commands(self, command: list, prompt):
         self.write('')
@@ -78,7 +71,7 @@ class TelnetConnection:
 
 
 
-    async def configure(self, completed: Queue = None, j2_file = "set_ips.j2"):
+    async def configure_ssh(self):
         pass
 
 

@@ -34,9 +34,15 @@ class SSHConnection:
     def send_config_set(self, commands: list):
         return self.conn.send_config_set(commands)
 
+    def configure_other_interfaces(self):
+        pass
 
-    def configure(self):
-        print(self.conn.send_command('show ip int brief'))
+    def configure_ospf(self):
+        pass
+
+    def configure_ssh_acl(self):
+        pass
+
 
 
     def close(self):
