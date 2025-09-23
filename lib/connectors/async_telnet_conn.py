@@ -60,13 +60,7 @@ class TelnetConnection:
         commands = render_commands(templates, **kwargs)
         return await self.execute_commands(commands, prmt)
 
-    async def configure_ftd(self,
-                            hostname,
-                            ip,
-                            netmask,
-                            gateway,
-                            password,
-                            ):
+    async def configure_ftd(self, hostname, ip, netmask, gateway, password):
         self.write('')
         time.sleep(1)
         out = await self.read(n=1000)
@@ -139,12 +133,11 @@ class TelnetConnection:
             out = await self.read(n=1000)
         if "'none' []:" in out:
             self.write('')
-            time.sleep(10)
+            time.sleep(15)
             out = await self.read(n=1000)
         if 'Manage the device locally? (yes/no) [yes]:' in out:
             self.write('')
-            time.sleep(1)
-            out = await self.read(n=1000)
+            time.sleep(15)
 
 
 

@@ -1,8 +1,13 @@
+import ipaddress
 import json
 import requests
+import urllib3
 from bravado.client import SwaggerClient
 from pyats.topology import Device
 from bravado.requests_client import RequestsClient
+from bravado.exception import HTTPUnprocessableEntity, HTTPError
+from urllib3.exceptions import InsecureRequestWarning
+
 
 class SwaggerConnector:
 
@@ -18,6 +23,7 @@ class SwaggerConnector:
         self.__access_token = None
         self.__refresh_token = None
         self.__token_type = None
+        urllib3.disable_warnings(InsecureRequestWarning)
 
     def connect(self):
         host = self.device.connections.swagger.ip
@@ -64,4 +70,181 @@ class SwaggerConnector:
             config={'validate_certificate': False, 'validate_responses': False},
         )
         return self.client
+
+    def finish_initial_setup(self):
+        swagger = self.get_swagger_client()
+
+        body = {
+            "type": "initialprovision",
+            "id": "default",
+            "acceptEULA": True,
+            "startTrialEvaluation": True,
+            "selectedPerformanceTierId": "FTDv50",
+        }
+
+        return swagger.InitialProvision.addInitialProvision(body=body).result()
+
+    def delete_existing_dhcp_sv(self):
+        swagger = self.get_swagger_client()
+        dhcp_servers = swagger.DHCPServerContainer.getDHCPServerContainerList().result()
+        for dhcp_server in dhcp_servers['items']:
+            dhcp_serv_list = dhcp_server['servers']
+            print(dhcp_serv_list)
+            dhcp_server.servers = []
+            response = swagger.DHCPServerContainer.editDHCPServerContainer(
+                objId=dhcp_server.id,
+                body=dhcp_server,
+            ).result()
+            return response
+
+    def configure_ftd_interfaces(self, interface1, interface2):
+        swagger = self.get_swagger_client()
+        existing_interfaces = swagger.Interface.getPhysicalInterfaceList().result()
+        responses = []
+        for interface in existing_interfaces['items']:
+            if interface.hardwareName == interface1.name:
+                interface.ipv4.ipAddress.ipAddress = interface1.ipv4.ip.compressed
+                interface.ipv4.ipAddress.netmask = interface1.ipv4.netmask.exploded
+                interface.ipv4.dhcp = False
+                interface.ipv4.ipType = 'STATIC'
+                interface.enable = True
+                interface.name = interface1.alias
+                response1 = swagger.Interface.editPhysicalInterface(
+                    objId=interface.id,
+                    body=interface,
+                ).result()
+                responses.append(response1)
+
+            if interface.hardwareName == interface2.name:
+                interface.ipv4.ipAddress.ipAddress = interface2.ipv4.ip.compressed
+                interface.ipv4.ipAddress.netmask = interface2.ipv4.netmask.exploded
+                interface.ipv4.dhcp = False
+                interface.ipv4.ipType = 'STATIC'
+                interface.enable = True
+                interface.name = interface2.alias
+                response2 = swagger.Interface.editPhysicalInterface(
+                    objId=interface.id,
+                    body=interface,
+                ).result()
+                responses.append(response2)
+        return responses
+
+    def configure_new_dhcp_sv(self, iface):
+        swagger = self.get_swagger_client()
+        interface_for_dhcp = None
+        existing_interfaces = swagger.Interface.getPhysicalInterfaceList().result()
+        for interface in existing_interfaces['items']:
+            if interface.hardwareName == iface.name:
+                interface_for_dhcp = interface
+        dhcp_servers = swagger.DHCPServerContainer.getDHCPServerContainerList().result()
+        for dhcp_server in dhcp_servers['items']:
+            dhcp_serv_list = dhcp_server['servers']
+            print(dhcp_serv_list)
+            dhcp_server_model = swagger.get_model('DHCPServer')
+            interface_ref_model = swagger.get_model('ReferenceModel')
+            dhcp_server.servers = [
+                dhcp_server_model(
+                    addressPool='192.168.205.100-192.168.205.200',
+                    enableDHCP=True,
+                    interface=interface_ref_model(
+                        # hardwareName=interface_for_dhcp.hardwareName,
+                        id=interface_for_dhcp.id,
+                        name=interface_for_dhcp.name,
+                        type='physicalinterface',
+                        # version='be5gwpeongcmt'
+                    ),
+                    type='dhcpserver'
+                )
+            ]
+            response = swagger.DHCPServerContainer.editDHCPServerContainer(
+                objId=dhcp_server.id,
+                body=dhcp_server,
+            ).result()
+            return response
+
+
+    def configure_ospf(self, vrf_id, name, process_id,
+                           area_id, if_to_cidr):
+        """
+        Create OSPF process with area 0 and two (or more) areaNetworks, each
+        tied to a *distinct* network object matching the interface subnet.
+        Example if_to_cidr: [("csr_ftd","192.168.204.0/24"), ("ftd_ep2","192.168.205.0/24")]
+        """
+        swagger = self.get_swagger_client()
+        Ref = swagger.get_model("ReferenceModel")
+
+        def ensure_netobj(cidr: str):
+            net = ipaddress.ip_network(cidr, strict=False)
+            name = f"NET_{net.network_address}_{net.prefixlen}"
+            existing = swagger.NetworkObject.getNetworkObjectList(
+                filter=f"name:{name}"
+            ).result()
+            if existing["items"]:
+                return existing["items"][0]
+            body = {"type": "networkobject", "name": name, "subType": "NETWORK",
+                    "value": f"{net.network_address}/{net.prefixlen}"}
+            return swagger.NetworkObject.addNetworkObject(body=body).result()
+
+        if_list = swagger.Interface.getPhysicalInterfaceList().result()["items"]
+        name_to_if = {i.name: i for i in if_list}
+
+        area_networks = []
+        for if_name, cidr in if_to_cidr:
+            itf = name_to_if[if_name]
+            netobj = ensure_netobj(cidr)
+            area_networks.append({
+                "type": "areanetwork",
+                "ipv4Network": Ref(id=netobj.id, name=netobj.name, type="networkobject"),
+                "tagInterface": Ref(
+                    id=itf.id, name=itf.name, type="physicalinterface",
+                    hardwareName=getattr(itf, "hardwareName", None)
+                ),
+            })
+
+        body = {
+            "type": "ospf",
+            "name": name,
+            "processId": str(process_id),
+            "areas": [{
+                "type": "area",
+                "areaId": str(area_id),
+                "areaNetworks": area_networks,
+                "virtualLinks": [],
+                "areaRanges": [],
+                "filterList": [],
+            }],
+            "neighbors": [],
+            "summaryAddresses": [],
+            "redistributeProtocols": [],
+            "filterRules": [],
+            "logAdjacencyChanges": {"type": "logadjacencychanges", "logType": "DETAILED"},
+            "processConfiguration": {
+                "type": "processconfiguration",
+                "administrativeDistance": {
+                    "type": "administrativedistance",
+                    "intraArea": 110, "interArea": 110, "external": 110
+                },
+                "timers": {
+                    "type": "timers",
+                    "floodPacing": 33,
+                    "lsaArrival": 1000,
+                    "lsaGroup": 240,
+                    "retransmission": 66,
+                    "lsaThrottleTimer": {
+                        "type": "lsathrottletimer",
+                        "initialDelay": 0, "minimumDelay": 5000, "maximumDelay": 5000
+                    },
+                    "spfThrottleTimer": {
+                        "type": "spfthrottletimer",
+                        "initialDelay": 5000, "minimumHoldTime": 10000, "maximumWaitTime": 10000
+                    }
+                }
+            }
+        }
+
+        return swagger.OSPF.addOSPF(vrfId=vrf_id, body=body).result()
+
+
+
+
 

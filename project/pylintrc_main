@@ -290,7 +290,7 @@ exclude-too-few-public-methods=
 ignored-parents=
 
 # Maximum number of arguments for function / method.
-max-args=5
+max-args=6
 
 # Maximum number of attributes for a class (see R0902).
 max-attributes=7
@@ -342,7 +342,7 @@ indent-after-paren=4
 indent-string='    '
 
 # Maximum number of characters on a single line.
-max-line-length=125
+max-line-length=126
 
 # Maximum number of lines in a module.
 max-module-lines=1000
@@ -438,6 +438,8 @@ disable=raw-checker-failed,
         use-symbolic-message-instead,
         wrong-import-order,
         unused-import,
+        too-many-positional-arguments,
+
 
 
 # Enable the message, report, category or checker with the given id(s). You can

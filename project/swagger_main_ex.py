@@ -6,6 +6,9 @@ import time
 import subprocess
 import sys
 import asyncio
+
+from aiohttp.web_exceptions import HTTPUnprocessableEntity
+from bravado.exception import HTTPError
 from pyats import aetest, topology
 from pyats.datastructures import AttrDict
 from lib.connectors.ssh_conn import SSHConnection
@@ -18,6 +21,7 @@ from ssh_acl import acl_commands
 
 obj = AttrDict()
 print(sys.path)
+
 
 async def telnet_configure_ssh(conn: TelnetConnection, templates, prompt, **kwargs):
     """This is a helper function that is being called inside pyats in order to configure the SSH connection on the devices."""
@@ -121,38 +125,38 @@ class CommonSetup(aetest.CommonSetup):
     #                     )
     #                 )
     #
-    # @aetest.subsection
-    # def bring_up_ftd_interface(self, steps):
-    #     """This method adds an ip address to FTD's management interface."""
-    #     for device in self.tb.devices:
-    #         if self.tb.devices[device].custom.role != 'firewall':
-    #             continue
-    #         with steps.start(f'Bringing up management interface on {device}',continue_=True):
-    #             for interface in self.tb.devices[device].interfaces:
-    #                 if self.tb.devices[device].interfaces[interface].link.name != 'management':
-    #                     continue
-    #
-    #                 intf_obj = self.tb.devices[device].interfaces[interface]
-    #                 hostname = self.tb.devices[device].custom.hostname
-    #                 gateway = self.tb.devices['UbuntuServer'].interfaces['ens4'].ipv4.ip.compressed
-    #                 conn_class = self.tb.devices[device].connections.get('telnet', {}).get('class', None)
-    #                 assert conn_class, f'No connection for device {device}'
-    #                 ip = self.tb.devices[device].connections.telnet.ip.compressed
-    #                 port = self.tb.devices[device].connections.telnet.port
-    #                 password = self.tb.devices[device].connections.telnet.credentials.login.password.plaintext
-    #                 conn: TelnetConnection = conn_class(ip, port)
-    #
-    #                 asyncio.run(
-    #                     telnet_configure_ftd(
-    #                         conn,
-    #                         hostname=hostname,
-    #                         ip=intf_obj.ipv4.ip.compressed,
-    #                         netmask=intf_obj.ipv4.netmask.exploded,
-    #                         gateway=gateway,
-    #                         password=password,
-    #                     )
-    #                 )
-    #
+    @aetest.subsection
+    def bring_up_ftd_interface(self, steps):
+        """This method adds an ip address to FTD's management interface."""
+        for device in self.tb.devices:
+            if self.tb.devices[device].custom.role != 'firewall':
+                continue
+            with steps.start(f'Bringing up management interface on {device}', continue_=True):
+                for interface in self.tb.devices[device].interfaces:
+                    if self.tb.devices[device].interfaces[interface].link.name != 'management':
+                        continue
+
+                    intf_obj = self.tb.devices[device].interfaces[interface]
+                    hostname = self.tb.devices[device].custom.hostname
+                    gateway = self.tb.devices['UbuntuServer'].interfaces['ens4'].ipv4.ip.compressed
+                    conn_class = self.tb.devices[device].connections.get('telnet', {}).get('class', None)
+                    assert conn_class, f'No connection for device {device}'
+                    ip = self.tb.devices[device].connections.telnet.ip.compressed
+                    port = self.tb.devices[device].connections.telnet.port
+                    password = self.tb.devices[device].connections.telnet.credentials.login.password.plaintext
+                    conn: TelnetConnection = conn_class(ip, port)
+
+                    asyncio.run(
+                        telnet_configure_ftd(
+                            conn,
+                            hostname=hostname,
+                            ip=intf_obj.ipv4.ip.compressed,
+                            netmask=intf_obj.ipv4.netmask.exploded,
+                            gateway=gateway,
+                            password=password,
+                        )
+                    )
+
     # @aetest.subsection
     # def configure_via_ssh(self, steps):
     #     """This method configures the devices through SSH."""
@@ -237,84 +241,55 @@ class CommonSetup(aetest.CommonSetup):
                 if not swagger:
                     self.failed('No swagger connection')
                 print(swagger)
-                print('test')
-    #
-    #     # with steps.start("Delete existing DHCP server"):
-    #     #         dhcp_servers = swagger.DHCPServerContainer.getDHCPServerContainerList().result()
-    #     #         for dhcp_server in dhcp_servers['items']:
-    #     #             dhcp_serv_list = dhcp_server['servers']
-    #     #             print(dhcp_serv_list)
-    #     #             dhcp_server.servers = []
-    #     #             response = swagger.DHCPServerContainer.editDHCPServerContainer(
-    #     #                 objId=dhcp_server.id,
-    #     #                 body = dhcp_server,
-    #     #             ).result()
-    #     #             print(response)
-    #
-        with steps.start('Configuring FTD Interfaces'):
-            existing_interfaces = swagger.Interface.getPhysicalInterfaceList().result()
-            ftd_ep2 = connection.device.interfaces['ftd_ep2']
-            csr_ftd = connection.device.interfaces['csr_ftd']
-            for interface in existing_interfaces['items']:
-                if interface.hardwareName == csr_ftd.name:
-                    interface.ipv4.ipAddress.ipAddress = csr_ftd.ipv4.ip.compressed
-                    interface.ipv4.ipAddress.netmask = csr_ftd.ipv4.netmask.exploded
-                    interface.ipv4.dhcp = False
-                    interface.ipv4.ipType = 'STATIC'
-                    interface.enable = True
-                    interface.name = csr_ftd.alias
-                    response = swagger.Interface.editPhysicalInterface(
-                        objId=interface.id,
-                        body=interface,
-                    ).result()
-                    print(response)
+                try:
+                    connection.finish_initial_setup()
+                except HTTPError:
+                    print('Initial setup is complete')
+        ftd_ep2 = connection.device.interfaces['ftd_ep2']
+        csr_ftd = connection.device.interfaces['csr_ftd']
+        # with steps.start("Delete existing DHCP server"):
+        #     try:
+        #         print(connection.delete_existing_dhcp_sv())
+        #     except HTTPError:
+        #         print('No existing DHCP server')
+        #
+        # with steps.start('Configuring FTD Interfaces'):
+        #     try:
+        #         print(connection.configure_ftd_interfaces(csr_ftd, ftd_ep2))
+        #     except HTTPError:
+        #         print('FTD interfaces already configured')
+        #
+        #
+        # with steps.start("Configure new DHCP server"):
+        #     try:
+        #         print(connection.configure_new_dhcp_sv(ftd_ep2))
+        #     except HTTPError:
+        #         print('Could not configure new DHCP server')
 
-                if interface.hardwareName == ftd_ep2.name:
-                    interface.ipv4.ipAddress.ipAddress = ftd_ep2.ipv4.ip.compressed
-                    interface.ipv4.ipAddress.netmask = ftd_ep2.ipv4.netmask.exploded
-                    interface.ipv4.dhcp = False
-                    interface.ipv4.ipType = 'STATIC'
-                    interface.enable = True
-                    interface.name = ftd_ep2.alias
-                    response = swagger.Interface.editPhysicalInterface(
-                        objId=interface.id,
-                        body=interface,
-                    ).result()
-                    interface_for_dhcp = interface
-                    print(response)
+        # with steps.start("Configuring OSPF on FTD"):
+        #     try:
+        #         ospf = connection.configure_ospf(
+        #             vrf_id='default',
+        #             name='ospf_1',
+        #             process_id='1',
+        #             area_id='0',
+        #             if_to_cidr=[
+        #                 ('csr_ftd', '192.168.204.0/24'),
+        #                 ('ftd_ep2', '192.168.205.0/24'),
+        #             ],
+        #         )
+        #         print(ospf)
+        #         lst = connection.get_swagger_client().OSPF.getOSPFList(vrfId="default").result()
+        #         for item in lst["items"]:
+        #             print(item)
+        #     except HTTPError as e:
+        #         print('Could not configure OSPF on FTD', e)
 
-    #     # with steps.start("Configure new DHCP server"):
-    #     #     dhcp_servers = swagger.DHCPServerContainer.getDHCPServerContainerList().result()
-    #     #     for dhcp_server in dhcp_servers['items']:
-    #     #         dhcp_serv_list = dhcp_server['servers']
-    #     #         print(dhcp_serv_list)
-    #     #         dhcp_server_model = swagger.get_model('DHCPServer')
-    #     #         interface_ref_model = swagger.get_model('ReferenceModel')
-    #     #         dhcp_server.servers = [
-    #     #             dhcp_server_model(
-    #     #                 addressPool='192.168.205.100-192.168.205.200',
-    #     #                 enableDHCP=True,
-    #     #                 interface=interface_ref_model(
-    #     #                     # hardwareName=interface_for_dhcp.hardwareName,
-    #     #                     id=interface_for_dhcp.id,
-    #     #                     name=interface_for_dhcp.name,
-    #     #                     type='physicalinterface',
-    #     #                     # version='be5gwpeongcmt'
-    #     #                 ),
-    #     #                 type='dhcpserver'
-    #     #             )
-    #     #         ]
-    #     #         response = swagger.DHCPServerContainer.editDHCPServerContainer(
-    #     #             objId=dhcp_server.id,
-    #     #             body=dhcp_server,
-    #     #         ).result()
-    #     #         print(response)
-    #
-    #     with steps.start("Adding routes to FTD"):
-    #         pass
-    #
-    #     with steps.start("Adding allow rule"):
-    #         pass
+        with steps.start("Deploying changes on FTD"):
+            print([n for n in dir(swagger) if 'deploy' in n.lower() or 'Deployment' in n])
+
+        with steps.start("Adding allow rule"):
+            pass
 
 
 if __name__ == '__main__':
