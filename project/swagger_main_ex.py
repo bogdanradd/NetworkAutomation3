@@ -282,8 +282,8 @@ class CommonSetup(aetest.CommonSetup):
                 lst = connection.get_swagger_client().OSPF.getOSPFList(vrfId="default").result()
                 for item in lst["items"]:
                     print(item)
-            except HTTPError as e:
-                print('Could not configure OSPF on FTD', e)
+            except HTTPError:
+                print('Could not configure OSPF on FTD')
 
         with steps.start("Deploying changes on FTD"):
             try:
