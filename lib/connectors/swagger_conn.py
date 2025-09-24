@@ -2,17 +2,16 @@ import ipaddress
 import json
 import requests
 import urllib3
+import time
 from bravado.client import SwaggerClient
 from pyats.topology import Device
 from bravado.requests_client import RequestsClient
-from bravado.exception import HTTPUnprocessableEntity, HTTPError
 from urllib3.exceptions import InsecureRequestWarning
 
 
 class SwaggerConnector:
 
     def __init__(self, device: Device, **kwargs):
-        print('got: ', kwargs)
         self.device: Device = device
         self.client = None
         self.connected = False
@@ -243,6 +242,20 @@ class SwaggerConnector:
         }
 
         return swagger.OSPF.addOSPF(vrfId=vrf_id, body=body).result()
+
+    def deploy(self, force=True):
+        swagger = self.get_swagger_client()
+        res = swagger.Deployment.addDeployment(body={"forceDeploy": True}).result()
+        dep_id = getattr(res, "id", None) or res.get("id")
+
+        terminal = {"DEPLOYED", "FAILED", "ERROR", "CANCELLED", "CANCELED"}
+        while True:
+            cur = swagger.Deployment.getDeployment(objId=dep_id).result()
+            state = (getattr(cur, "state", None) or cur.get("state") or "").upper()
+            if state in terminal:
+                print(getattr(cur, "statusMessage", None) or cur.get("statusMessage"))
+                break
+            time.sleep(2)
 
 
 

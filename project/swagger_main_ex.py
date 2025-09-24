@@ -266,27 +266,30 @@ class CommonSetup(aetest.CommonSetup):
         #     except HTTPError:
         #         print('Could not configure new DHCP server')
 
-        # with steps.start("Configuring OSPF on FTD"):
-        #     try:
-        #         ospf = connection.configure_ospf(
-        #             vrf_id='default',
-        #             name='ospf_1',
-        #             process_id='1',
-        #             area_id='0',
-        #             if_to_cidr=[
-        #                 ('csr_ftd', '192.168.204.0/24'),
-        #                 ('ftd_ep2', '192.168.205.0/24'),
-        #             ],
-        #         )
-        #         print(ospf)
-        #         lst = connection.get_swagger_client().OSPF.getOSPFList(vrfId="default").result()
-        #         for item in lst["items"]:
-        #             print(item)
-        #     except HTTPError as e:
-        #         print('Could not configure OSPF on FTD', e)
+        with steps.start("Configuring OSPF on FTD"):
+            try:
+                ospf = connection.configure_ospf(
+                    vrf_id='default',
+                    name='ospf_1',
+                    process_id='1',
+                    area_id='0',
+                    if_to_cidr=[
+                        ('csr_ftd', '192.168.204.0/24'),
+                        ('ftd_ep2', '192.168.205.0/24'),
+                    ],
+                )
+                print(ospf)
+                lst = connection.get_swagger_client().OSPF.getOSPFList(vrfId="default").result()
+                for item in lst["items"]:
+                    print(item)
+            except HTTPError as e:
+                print('Could not configure OSPF on FTD', e)
 
         with steps.start("Deploying changes on FTD"):
-            print([n for n in dir(swagger) if 'deploy' in n.lower() or 'Deployment' in n])
+            try:
+                res = connection.deploy(force=True)
+            except HTTPError:
+                print('Deployment failed')
 
         with steps.start("Adding allow rule"):
             pass
