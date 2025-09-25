@@ -350,7 +350,7 @@ class CommonSetup(aetest.CommonSetup):
 
         with steps.start("Deploying changes on FTD"):
             try:
-                res = connection.deploy(force=True)
+                connection.deploy(force=True)
             except HTTPError:
                 print('Deployment failed')
 

@@ -354,7 +354,7 @@ class CommonSetup(aetest.CommonSetup):
     def swagger_deploy(self):
         connection = self.ensure_swagger_connection()
         try:
-            res = connection.deploy(force=True)
+            connection.deploy(force=True)
         except HTTPError:
             print('Deployment failed')
 
