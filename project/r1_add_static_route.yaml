@@ -1,6 +1,6 @@
 ---
 - name: Add static route to IOS device
-  hosts: router1
+  hosts: ios
   gather_facts: no
 
   vars:
