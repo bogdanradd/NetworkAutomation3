@@ -1,0 +1,1 @@
+ansible-playbook -i inv.ini r1_add_static_route.yaml --ask-vault-pass

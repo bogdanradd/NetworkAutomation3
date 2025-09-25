@@ -1,0 +1,348 @@
+"""
+This test will configure all devices.
+"""
+import time
+import subprocess
+import sys
+import asyncio
+
+from bravado.exception import HTTPError
+from pyats import aetest, topology
+from pyats.datastructures import AttrDict
+from pyats.topology import Device
+from genie.libs.conf.interface.iosxe import Interface
+from genie.libs.conf.ospf import Ospf
+from lib.connectors.ssh_conn import SSHConnection
+from lib.connectors.swagger_conn import SwaggerConnector
+from lib.connectors.async_telnet_conn import TelnetConnection
+from ssh_config import commands
+from int_config import add_ips
+from ospf_config import ospf_commands
+from ssh_acl import acl_commands
+
+obj = AttrDict()
+print(sys.path)
+
+
+async def telnet_configure_ssh(conn: TelnetConnection, templates, prompt, **kwargs):
+    """This is a helper function that is being called inside pyats in order to configure the SSH connection on the devices."""
+    await conn.connect()
+    time.sleep(1)
+    return await conn.configure_ssh(templates=templates, prmt=prompt, **kwargs)
+
+
+async def telnet_configure_ftd(conn: TelnetConnection, hostname, ip, netmask, gateway, password):
+    """This is a helper function that is being called inside pyats in order to configure FTD's initial setup."""
+    await conn.connect()
+    time.sleep(1)
+    return await conn.configure_ftd(
+        hostname=hostname,
+        ip=ip,
+        netmask=netmask,
+        gateway=gateway,
+        password=password,
+    )
+
+
+class CommonSetup(aetest.CommonSetup):
+    """This class is used as a general class. It contains every method used to configure all devices."""
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.swagger_conn = None
+        self.tb = None
+        self.dev = None
+
+
+    def ensure_csr_connection(self):
+        """Ensure CSR is connected via unicon and return the device handle."""
+        if not self.dev:
+            self.dev: Device = self.tb.devices.CSR
+        if not self.dev.connected:
+            self.dev.connect(log_stdout=True, via='unicon')
+        return self.dev
+
+    def ensure_ssh_connection(self, device_name):
+        """Establish SSH connection for a given device and return the connector."""
+        dev = self.tb.devices[device_name]
+        conn_class = dev.connections.get("ssh", {}).get("class", None)
+        assert conn_class, f"No SSH connection for {device_name}"
+
+        conn: SSHConnection = conn_class(
+            host=str(dev.connections.ssh['ip']),
+            port=str(dev.connections.ssh['port']),
+            username=dev.connections.ssh.credentials.login['username'],
+            password=dev.connections.ssh.credentials.login['password'].plaintext,
+        )
+        conn.connect()
+        return conn
+
+
+
+    @aetest.subsection
+    def load_testbed(self):
+        """This method loads the testbed that provides details about whole topology."""
+        self.tb = topology.loader.load('main_testbed.yaml')
+        self.parent.parameters.update(tb=self.tb)
+
+    @aetest.subsection
+    def bring_up_server_interface(self):
+        """This method adds an IP address and some routes to the container"""
+        server = self.tb.devices['UbuntuServer']
+        for intf_name, intf in server.interfaces.items():
+            subprocess.run(['sudo', 'ip', 'addr', 'replace',
+                            f'{intf.ipv4}',
+                            'dev', f'{intf_name}'],
+                           check=True)
+            subprocess.run(['sudo', 'ip', 'link', 'set', 'dev',
+                            f'{intf_name}', 'up'],
+                           check=True)
+
+        for device in self.tb.devices:
+            if self.tb.devices[device].type != 'router':
+                continue
+            gateway = self.tb.devices[device].interfaces['initial'].ipv4.ip.compressed
+            for interface in self.tb.devices[device].interfaces:
+                if self.tb.devices[device].interfaces[interface].link.name == 'management':
+                    continue
+                subnet = self.tb.devices[device].interfaces[interface].ipv4.network.compressed
+                subprocess.run(['sudo', 'ip', 'route', 'replace',
+                                f'{subnet}',
+                                'via', f'{gateway}'],
+                               check=True)
+
+    @aetest.subsection
+    def configure_ssh(self):
+        """This method configures the SSH connection."""
+        for device in self.tb.devices:
+            if self.tb.devices[device].custom.role != 'router':
+                continue
+            for interface in self.tb.devices[device].interfaces:
+                if self.tb.devices[device].interfaces[interface].link.name != 'management':
+                    continue
+                intf_obj = self.tb.devices[device].interfaces[interface]
+                conn_class = self.tb.devices[device].connections.get(
+                    'telnet', {}
+                ).get('class', None)
+                assert conn_class, f'No connection for device {device}'
+                ip = self.tb.devices[device].connections.telnet.ip.compressed
+                port = self.tb.devices[device].connections.telnet.port
+                username = self.tb.devices[device].connections.ssh.credentials.login.username
+                password = self.tb.devices[device].connections.ssh.credentials.login.password.plaintext
+                domain = self.tb.devices[device].custom.get('domain', None)
+                try:
+                    conn: TelnetConnection = conn_class(ip, port)
+                    asyncio.run(
+                        telnet_configure_ssh(
+                            conn,
+                            templates=commands,
+                            prompt='#',
+                            interface=interface,
+                            ip=intf_obj.ipv4.ip.compressed,
+                            sm=intf_obj.ipv4.netmask.exploded,
+                            hostname=device,
+                            username=username,
+                            password=password,
+                            domain=domain,
+                        )
+                    )
+                except Exception as e:
+                    print(f'Failed to connect to device {device}', e)
+                    continue
+
+    @aetest.subsection
+    def bring_up_ftd_interface(self):
+        """This method adds an ip address to FTD's management interface."""
+        for device in self.tb.devices:
+            if self.tb.devices[device].custom.role != 'firewall':
+                continue
+            for interface in self.tb.devices[device].interfaces:
+                if self.tb.devices[device].interfaces[interface].link.name != 'management':
+                    continue
+
+                intf_obj = self.tb.devices[device].interfaces[interface]
+                hostname = self.tb.devices[device].custom.hostname
+                gateway = self.tb.devices['UbuntuServer'].interfaces['ens4'].ipv4.ip.compressed
+                conn_class = self.tb.devices[device].connections.get('telnet', {}).get('class', None)
+                assert conn_class, f'No connection for device {device}'
+                ip = self.tb.devices[device].connections.telnet.ip.compressed
+                port = self.tb.devices[device].connections.telnet.port
+                password = self.tb.devices[device].connections.telnet.credentials.login.password.plaintext
+                conn: TelnetConnection = conn_class(ip, port)
+
+                asyncio.run(
+                    telnet_configure_ftd(
+                        conn,
+                        hostname=hostname,
+                        ip=intf_obj.ipv4.ip.compressed,
+                        netmask=intf_obj.ipv4.netmask.exploded,
+                        gateway=gateway,
+                        password=password,
+                    )
+                )
+
+
+    @aetest.subsection
+    def genie_configure_other_interfaces(self):
+        dev = self.ensure_csr_connection()
+        for ifname in ("GigabitEthernet2", "GigabitEthernet3"):
+            intf = Interface(name=ifname)
+            intf.device = dev
+            intf.ipv4 = dev.interfaces[ifname].ipv4
+            intf.enabled = True
+            cfg = intf.build_config(apply=False)
+            dev.configure(cfg.cli_config.data)
+
+    @aetest.subsection
+    def genie_configure_ospf(self):
+        dev = self.ensure_csr_connection()
+        ospf = Ospf()
+        da = ospf.device_attr[dev]
+        va = da.vrf_attr['default']
+        va.instance = '1'
+        for ifname in ("GigabitEthernet2", "GigabitEthernet3"):
+            ia = va.area_attr['0'].interface_attr[ifname]
+            ia.if_admin_control = True
+        cfg = da.build_config(apply=False)
+        dev.configure(cfg.cli_config.data)
+
+    @aetest.subsection
+    def genie_configure_ssh_acl(self):
+        dev = self.ensure_csr_connection()
+        container_ip = self.tb.devices['UbuntuServer'].interfaces['ens4'].ipv4.ip.compressed
+        cfg = f"""
+        ip access-list standard SSH
+         permit host {container_ip}
+         deny any
+        line vty 0 4
+         access-class SSH in
+         transport input ssh
+        """
+        dev.configure(cfg)
+
+
+    @aetest.subsection
+    def ssh_configure_interfaces(self):
+        for device in self.tb.devices:
+            if self.tb.devices[device].custom.role != 'router':
+                continue
+            if 'unicon' in self.tb.devices[device].connections:
+                continue
+            conn = self.ensure_ssh_connection(device)
+            try:
+                for interface in self.tb.devices[device].interfaces:
+                    if self.tb.devices[device].interfaces[interface].link.name == 'management':
+                        continue
+                    intf_obj = self.tb.devices[device].interfaces[interface]
+                    print(
+                        conn.configure(
+                            add_ips,
+                            interface=interface,
+                            ip=intf_obj.ipv4.ip.compressed,
+                            sm=intf_obj.ipv4.netmask.exploded,
+                        )
+                    )
+            finally:
+                conn.close()
+
+    @aetest.subsection
+    def ssh_configure_ospf(self):
+        for device in self.tb.devices:
+            if self.tb.devices[device].custom.role != 'router':
+                continue
+            if 'unicon' in self.tb.devices[device].connections:
+                continue
+            conn = self.ensure_ssh_connection(device)
+            try:
+                for interface in self.tb.devices[device].interfaces:
+                    print(conn.configure(ospf_commands, interface=interface))
+            finally:
+                conn.close()
+
+    @aetest.subsection
+    def ssh_configure_acl(self):
+        for device in self.tb.devices:
+            if self.tb.devices[device].custom.role != 'router':
+                continue
+            if 'unicon' in self.tb.devices[device].connections:
+                continue
+            conn = self.ensure_ssh_connection(device)
+            try:
+                container_ip = self.tb.devices['UbuntuServer'].interfaces['ens4'].ipv4.ip.compressed
+                print(conn.configure(acl_commands, ssh_container=container_ip))
+            finally:
+                conn.close()
+
+    @aetest.subsection
+    def swagger_connect_and_initial_setup(self):
+        for device in self.tb.devices:
+            if self.tb.devices[device].custom.role != 'firewall':
+                continue
+            if "swagger" not in self.tb.devices[device].connections:
+                continue
+            connection: SwaggerConnector = self.tb.devices[device].connect(via='swagger')
+            swagger = connection.get_swagger_client()
+            if not swagger:
+                self.failed('No swagger connection')
+            print(swagger)
+            try:
+                connection.finish_initial_setup()
+            except HTTPError:
+                print('Initial setup is complete')
+            self.swagger_conn = connection
+
+    @aetest.subsection
+    def swagger_delete_existing_dhcp(self):
+        try:
+            print(self.swagger_conn.delete_existing_dhcp_sv())
+        except HTTPError:
+            print('No existing DHCP server')
+
+    @aetest.subsection
+    def swagger_configure_ftd_interfaces(self):
+        ftd_ep2 = self.swagger_conn.device.interfaces['ftd_ep2']
+        csr_ftd = self.swagger_conn.device.interfaces['csr_ftd']
+        try:
+            print(self.swagger_conn.configure_ftd_interfaces(csr_ftd, ftd_ep2))
+        except HTTPError:
+            print('FTD interfaces already configured')
+
+    @aetest.subsection
+    def swagger_configure_new_dhcp(self):
+        ftd_ep2 = self.swagger_conn.device.interfaces['ftd_ep2']
+        try:
+            print(self.swagger_conn.configure_new_dhcp_sv(ftd_ep2))
+        except HTTPError:
+            print('Could not configure new DHCP server')
+
+    @aetest.subsection
+    def swagger_configure_ospf(self):
+        try:
+            ospf = self.swagger_conn.configure_ospf(
+                vrf_id='default',
+                name='ospf_1',
+                process_id='1',
+                area_id='0',
+                if_to_cidr=[
+                    ('csr_ftd', '192.168.204.0/24'),
+                    ('ftd_ep2', '192.168.205.0/24'),
+                ],
+            )
+            print(ospf)
+            lst = self.swagger_conn.get_swagger_client().OSPF.getOSPFList(vrfId="default").result()
+            for item in lst["items"]:
+                print(item)
+        except HTTPError:
+            print('Could not configure OSPF on FTD')
+
+    @aetest.subsection
+    def swagger_deploy(self):
+        try:
+            res = self.swagger_conn.deploy(force=True)
+            print(res)
+        except HTTPError:
+            print('Deployment failed')
+
+
+if __name__ == '__main__':
+    aetest.main()
