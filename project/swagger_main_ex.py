@@ -170,8 +170,7 @@ class CommonSetup(aetest.CommonSetup):
                          via = 'unicon',
                          )
 
-        @aetest.subsection
-        def configure_ospf_via_genie(steps):
+
         with steps.start("Configure other interfaces on CSR"):
             intf = Interface(
                 name='GigabitEthernet2'
