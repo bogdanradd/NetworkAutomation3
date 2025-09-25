@@ -5,4 +5,8 @@
     <orderEntry type="jdk" jdkName="Remote Python 3.13.3 (sftp://osboxes@92.81.55.146:1028/home/osboxes/.virtualenvs/NetworkAutomation3/bin/python)" jdkType="Python SDK" />
     <orderEntry type="sourceFolder" forTests="false" />
   </component>
+  <component name="PyDocumentationSettings">
+    <option name="format" value="PLAIN" />
+    <option name="myDocStringFormat" value="Plain" />
+  </component>
 </module>
