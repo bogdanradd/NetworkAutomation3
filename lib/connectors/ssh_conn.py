@@ -1,5 +1,7 @@
 
 from netmiko import ConnectHandler
+from genie.libs.conf.interface.iosxe import Interface
+from genie.libs.conf.ospf import Ospf
 
 
 HOST = '192.168.100.1'
@@ -39,7 +41,6 @@ class SSHConnection:
     def configure(self, templates, **kwargs):
         commands = render_commands(templates, **kwargs)
         return self.send_config_set(commands)
-
 
 
     def close(self):

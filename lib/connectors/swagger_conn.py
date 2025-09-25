@@ -71,34 +71,31 @@ class SwaggerConnector:
         return self.client
 
     def finish_initial_setup(self):
-        swagger = self.get_swagger_client()
 
         body = {
             "type": "initialprovision",
             "id": "default",
             "acceptEULA": True,
             "startTrialEvaluation": True,
-            "selectedPerformanceTierId": "FTDv50",
+            "selectedPerformanceTierId": "FTDv5",
         }
 
-        return swagger.InitialProvision.addInitialProvision(body=body).result()
+        return self.client.InitialProvision.addInitialProvision(body=body).result()
 
     def delete_existing_dhcp_sv(self):
-        swagger = self.get_swagger_client()
-        dhcp_servers = swagger.DHCPServerContainer.getDHCPServerContainerList().result()
+        dhcp_servers = self.client.DHCPServerContainer.getDHCPServerContainerList().result()
         for dhcp_server in dhcp_servers['items']:
             dhcp_serv_list = dhcp_server['servers']
             print(dhcp_serv_list)
             dhcp_server.servers = []
-            response = swagger.DHCPServerContainer.editDHCPServerContainer(
+            response = self.client.DHCPServerContainer.editDHCPServerContainer(
                 objId=dhcp_server.id,
                 body=dhcp_server,
             ).result()
             return response
 
     def configure_ftd_interfaces(self, interface1, interface2):
-        swagger = self.get_swagger_client()
-        existing_interfaces = swagger.Interface.getPhysicalInterfaceList().result()
+        existing_interfaces = self.client.Interface.getPhysicalInterfaceList().result()
         responses = []
         for interface in existing_interfaces['items']:
             if interface.hardwareName == interface1.name:
@@ -108,7 +105,7 @@ class SwaggerConnector:
                 interface.ipv4.ipType = 'STATIC'
                 interface.enable = True
                 interface.name = interface1.alias
-                response1 = swagger.Interface.editPhysicalInterface(
+                response1 = self.client.Interface.editPhysicalInterface(
                     objId=interface.id,
                     body=interface,
                 ).result()
@@ -121,7 +118,7 @@ class SwaggerConnector:
                 interface.ipv4.ipType = 'STATIC'
                 interface.enable = True
                 interface.name = interface2.alias
-                response2 = swagger.Interface.editPhysicalInterface(
+                response2 = self.client.Interface.editPhysicalInterface(
                     objId=interface.id,
                     body=interface,
                 ).result()
@@ -129,18 +126,17 @@ class SwaggerConnector:
         return responses
 
     def configure_new_dhcp_sv(self, iface):
-        swagger = self.get_swagger_client()
         interface_for_dhcp = None
-        existing_interfaces = swagger.Interface.getPhysicalInterfaceList().result()
+        existing_interfaces = self.client.Interface.getPhysicalInterfaceList().result()
         for interface in existing_interfaces['items']:
             if interface.hardwareName == iface.name:
                 interface_for_dhcp = interface
-        dhcp_servers = swagger.DHCPServerContainer.getDHCPServerContainerList().result()
+        dhcp_servers = self.client.DHCPServerContainer.getDHCPServerContainerList().result()
         for dhcp_server in dhcp_servers['items']:
             dhcp_serv_list = dhcp_server['servers']
             print(dhcp_serv_list)
-            dhcp_server_model = swagger.get_model('DHCPServer')
-            interface_ref_model = swagger.get_model('ReferenceModel')
+            dhcp_server_model = self.client.get_model('DHCPServer')
+            interface_ref_model = self.client.get_model('ReferenceModel')
             dhcp_server.servers = [
                 dhcp_server_model(
                     addressPool='192.168.205.100-192.168.205.200',
@@ -155,7 +151,7 @@ class SwaggerConnector:
                     type='dhcpserver'
                 )
             ]
-            response = swagger.DHCPServerContainer.editDHCPServerContainer(
+            response = self.client.DHCPServerContainer.editDHCPServerContainer(
                 objId=dhcp_server.id,
                 body=dhcp_server,
             ).result()
@@ -169,22 +165,21 @@ class SwaggerConnector:
         tied to a *distinct* network object matching the interface subnet.
         Example if_to_cidr: [("csr_ftd","192.168.204.0/24"), ("ftd_ep2","192.168.205.0/24")]
         """
-        swagger = self.get_swagger_client()
-        Ref = swagger.get_model("ReferenceModel")
+        Ref = self.client.get_model("ReferenceModel")
 
         def ensure_netobj(cidr: str):
             net = ipaddress.ip_network(cidr, strict=False)
             name = f"NET_{net.network_address}_{net.prefixlen}"
-            existing = swagger.NetworkObject.getNetworkObjectList(
+            existing = self.client.NetworkObject.getNetworkObjectList(
                 filter=f"name:{name}"
             ).result()
             if existing["items"]:
                 return existing["items"][0]
             body = {"type": "networkobject", "name": name, "subType": "NETWORK",
                     "value": f"{net.network_address}/{net.prefixlen}"}
-            return swagger.NetworkObject.addNetworkObject(body=body).result()
+            return self.client.NetworkObject.addNetworkObject(body=body).result()
 
-        if_list = swagger.Interface.getPhysicalInterfaceList().result()["items"]
+        if_list = self.client.Interface.getPhysicalInterfaceList().result()["items"]
         name_to_if = {i.name: i for i in if_list}
 
         area_networks = []
@@ -241,16 +236,15 @@ class SwaggerConnector:
             }
         }
 
-        return swagger.OSPF.addOSPF(vrfId=vrf_id, body=body).result()
+        return self.client.OSPF.addOSPF(vrfId=vrf_id, body=body).result()
 
     def deploy(self, force=True):
-        swagger = self.get_swagger_client()
-        res = swagger.Deployment.addDeployment(body={"forceDeploy": True}).result()
+        res = self.client.Deployment.addDeployment(body={"forceDeploy": True}).result()
         dep_id = getattr(res, "id", None) or res.get("id")
 
         terminal = {"DEPLOYED", "FAILED", "ERROR", "CANCELLED", "CANCELED"}
         while True:
-            cur = swagger.Deployment.getDeployment(objId=dep_id).result()
+            cur = self.client.Deployment.getDeployment(objId=dep_id).result()
             state = (getattr(cur, "state", None) or cur.get("state") or "").upper()
             if state in terminal:
                 print(getattr(cur, "statusMessage", None) or cur.get("statusMessage"))

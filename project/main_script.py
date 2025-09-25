@@ -238,19 +238,19 @@ class CommonSetup(aetest.CommonSetup):
                     self.failed('No swagger connection')
                 print(swagger)
                 print('test')
-    #
-    #     # with steps.start("Delete existing DHCP server"):
-    #     #         dhcp_servers = swagger.DHCPServerContainer.getDHCPServerContainerList().result()
-    #     #         for dhcp_server in dhcp_servers['items']:
-    #     #             dhcp_serv_list = dhcp_server['servers']
-    #     #             print(dhcp_serv_list)
-    #     #             dhcp_server.servers = []
-    #     #             response = swagger.DHCPServerContainer.editDHCPServerContainer(
-    #     #                 objId=dhcp_server.id,
-    #     #                 body = dhcp_server,
-    #     #             ).result()
-    #     #             print(response)
-    #
+
+        with steps.start("Delete existing DHCP server"):
+                dhcp_servers = swagger.DHCPServerContainer.getDHCPServerContainerList().result()
+                for dhcp_server in dhcp_servers['items']:
+                    dhcp_serv_list = dhcp_server['servers']
+                    print(dhcp_serv_list)
+                    dhcp_server.servers = []
+                    response = swagger.DHCPServerContainer.editDHCPServerContainer(
+                        objId=dhcp_server.id,
+                        body = dhcp_server,
+                    ).result()
+                    print(response)
+
         with steps.start('Configuring FTD Interfaces'):
             existing_interfaces = swagger.Interface.getPhysicalInterfaceList().result()
             ftd_ep2 = connection.device.interfaces['ftd_ep2']
