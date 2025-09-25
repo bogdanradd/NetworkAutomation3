@@ -49,16 +49,16 @@ class CommonSetup(aetest.CommonSetup):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.swagger_conn = None
         self.tb = None
         self.dev = None
+        self._swagger_conn = None
 
 
     def ensure_csr_connection(self):
         """Ensure CSR is connected via unicon and return the device handle."""
         if not self.dev:
             self.dev: Device = self.tb.devices.CSR
-        if not self.dev.connected:
+        if not getattr(self.dev, "connected", False):
             self.dev.connect(log_stdout=True, via='unicon')
         return self.dev
 
@@ -77,6 +77,24 @@ class CommonSetup(aetest.CommonSetup):
         conn.connect()
         return conn
 
+    def ensure_swagger_connection(self):
+        """Ensure a SwaggerConnector is available for the firewall device and return it."""
+        if self._swagger_conn is not None:
+            return self._swagger_conn
+
+        for device in self.tb.devices:
+            dev = self.tb.devices[device]
+            if dev.custom.role != 'firewall':
+                continue
+            if "swagger" not in dev.connections:
+                continue
+
+            connection: SwaggerConnector = dev.connect(via='swagger')
+            swagger = connection.get_swagger_client()
+            if not swagger:
+                self.failed('No swagger connection')
+            self._swagger_conn = connection
+            return self._swagger_conn
 
 
     @aetest.subsection
@@ -275,50 +293,47 @@ class CommonSetup(aetest.CommonSetup):
 
     @aetest.subsection
     def swagger_connect_and_initial_setup(self):
-        for device in self.tb.devices:
-            if self.tb.devices[device].custom.role != 'firewall':
-                continue
-            if "swagger" not in self.tb.devices[device].connections:
-                continue
-            connection: SwaggerConnector = self.tb.devices[device].connect(via='swagger')
-            swagger = connection.get_swagger_client()
-            if not swagger:
-                self.failed('No swagger connection')
-            print(swagger)
-            try:
-                connection.finish_initial_setup()
-            except HTTPError:
-                print('Initial setup is complete')
-            self.swagger_conn = connection
+        """This method is being used to finish initial FTD setup and continue configuring it."""
+        connection = self.ensure_swagger_connection()
+        swagger = connection.get_swagger_client()
+        print(swagger)
+        try:
+            connection.finish_initial_setup()
+        except HTTPError:
+            print('Initial setup is complete')
 
     @aetest.subsection
     def swagger_delete_existing_dhcp(self):
+        connection = self.ensure_swagger_connection()
         try:
-            print(self.swagger_conn.delete_existing_dhcp_sv())
+            print(connection.delete_existing_dhcp_sv())
         except HTTPError:
             print('No existing DHCP server')
 
     @aetest.subsection
     def swagger_configure_ftd_interfaces(self):
-        ftd_ep2 = self.swagger_conn.device.interfaces['ftd_ep2']
-        csr_ftd = self.swagger_conn.device.interfaces['csr_ftd']
+        connection = self.ensure_swagger_connection()
+        ftd_ep2 = connection.device.interfaces['ftd_ep2']
+        csr_ftd = connection.device.interfaces['csr_ftd']
         try:
-            print(self.swagger_conn.configure_ftd_interfaces(csr_ftd, ftd_ep2))
+            print(connection.configure_ftd_interfaces(csr_ftd, ftd_ep2))
         except HTTPError:
             print('FTD interfaces already configured')
 
     @aetest.subsection
     def swagger_configure_new_dhcp(self):
-        ftd_ep2 = self.swagger_conn.device.interfaces['ftd_ep2']
+        connection = self.ensure_swagger_connection()
+        ftd_ep2 = connection.device.interfaces['ftd_ep2']
         try:
-            print(self.swagger_conn.configure_new_dhcp_sv(ftd_ep2))
+            print(connection.configure_new_dhcp_sv(ftd_ep2))
         except HTTPError:
             print('Could not configure new DHCP server')
 
     @aetest.subsection
     def swagger_configure_ospf(self):
+        connection = self.ensure_swagger_connection()
         try:
-            ospf = self.swagger_conn.configure_ospf(
+            ospf = connection.configure_ospf(
                 vrf_id='default',
                 name='ospf_1',
                 process_id='1',
@@ -329,7 +344,7 @@ class CommonSetup(aetest.CommonSetup):
                 ],
             )
             print(ospf)
-            lst = self.swagger_conn.get_swagger_client().OSPF.getOSPFList(vrfId="default").result()
+            lst = connection.get_swagger_client().OSPF.getOSPFList(vrfId="default").result()
             for item in lst["items"]:
                 print(item)
         except HTTPError:
@@ -337,9 +352,9 @@ class CommonSetup(aetest.CommonSetup):
 
     @aetest.subsection
     def swagger_deploy(self):
+        connection = self.ensure_swagger_connection()
         try:
-            res = self.swagger_conn.deploy(force=True)
-            print(res)
+            res = connection.deploy(force=True)
         except HTTPError:
             print('Deployment failed')
 
