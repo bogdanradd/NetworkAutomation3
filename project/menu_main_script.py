@@ -131,7 +131,8 @@ class CommonSetup(aetest.CommonSetup):
                                     'via', f'{gateway}'],
                                    check=True)
                     if subnet in ['192.168.204.0/24', '192.168.205.0/24']:
-                        subprocess.run(['sudo', 'ip', 'route', 'replace', f'{subnet}', 'via', f'{csr_gw}'], )
+                        subprocess.run(['sudo', 'ip', 'route', 'replace', f'{subnet}', 'via', f'{csr_gw}'],
+                                       check=True)
 
     @aetest.subsection
     def configure_ssh(self, steps):
@@ -207,11 +208,12 @@ class CommonSetup(aetest.CommonSetup):
 
     @aetest.subsection
     def genie_configure_other_interfaces(self, steps):
+        """This method is used to configure all other interfaces on CSR via GENIE"""
         with steps.start("Configure other CSR interfaces via GENIE"):
             try:
                 dev = self.ensure_csr_connection()
-            except:
-                print('Failed to connect with genie to CSR')
+            except Exception as e:
+                print('Failed to connect with genie to CSR', e)
             for ifname in ("GigabitEthernet2", "GigabitEthernet3"):
                 intf = Interface(name=ifname)
                 intf.device = dev
@@ -222,11 +224,12 @@ class CommonSetup(aetest.CommonSetup):
 
     @aetest.subsection
     def genie_configure_ospf(self, steps):
+        """This method is used to configure OSPF on CSR via GENIE"""
         with steps.start("Configure OSPF on CSR via GENIE"):
             try:
                 dev = self.ensure_csr_connection()
-            except:
-                print('Failed to connect with genie to CSR')
+            except Exception as e:
+                print('Failed to connect with genie to CSR', e)
             ospf = Ospf()
             da = ospf.device_attr[dev]
             va = da.vrf_attr['default']
@@ -239,11 +242,12 @@ class CommonSetup(aetest.CommonSetup):
 
     @aetest.subsection
     def genie_configure_ssh_acl(self, steps):
+        """This method is used to configure an SSH ACL on CSR via GENIE"""
         with steps.start("Configure SSH ACL on CSR via GENIE"):
             try:
                 dev = self.ensure_csr_connection()
-            except:
-                print('Failed to connect with genie to CSR')
+            except Exception as e:
+                print('Failed to connect with genie to CSR', e)
             container_ip = self.tb.devices['UbuntuServer'].interfaces['ens4'].ipv4.ip.compressed
             cfg = f"""
             ip access-list standard SSH
@@ -257,6 +261,7 @@ class CommonSetup(aetest.CommonSetup):
 
     @aetest.subsection
     def ssh_configure_interfaces(self, steps):
+        """This method is used to configure all other active interfaces on IOU1 and IOSv via SSH"""
         for device in self.tb.devices:
             if self.tb.devices[device].custom.role != 'router':
                 continue
@@ -282,6 +287,7 @@ class CommonSetup(aetest.CommonSetup):
 
     @aetest.subsection
     def ssh_configure_dhcp_iou1(self, steps):
+        """This method is used to configure a new DHCP pool on IOU1 via SSH"""
         device = self.tb.devices['IOU1']
         intf_obj = device.interfaces['Ethernet0/1']
         guest_network = intf_obj.ipv4.network.network_address.exploded
@@ -303,6 +309,7 @@ class CommonSetup(aetest.CommonSetup):
 
     @aetest.subsection
     def ssh_configure_ospf(self, steps):
+        """This method is used to configure OSPF on IOU1 and IOSv via SSH"""
         for device in self.tb.devices:
             if self.tb.devices[device].custom.role != 'router':
                 continue
@@ -318,6 +325,7 @@ class CommonSetup(aetest.CommonSetup):
 
     @aetest.subsection
     def ssh_configure_acl(self, steps):
+        """This method is used to configure an ACL SSH on IOU1 and IOSv via SSH"""
         for device in self.tb.devices:
             if self.tb.devices[device].custom.role != 'router':
                 continue
@@ -345,6 +353,7 @@ class CommonSetup(aetest.CommonSetup):
 
     @aetest.subsection
     def swagger_delete_existing_dhcp(self, steps):
+        """This method deletes existing DHCP configuration on FTD"""
         with steps.start("Delete existing DHCP on FTD"):
             connection = self.ensure_swagger_connection()
             try:
@@ -354,6 +363,7 @@ class CommonSetup(aetest.CommonSetup):
 
     @aetest.subsection
     def swagger_configure_ftd_interfaces(self, steps):
+        """This method configures all other active interfaces on FTD via SWAGGER"""
         with steps.start("Configure other interfaces on FTD"):
             connection = self.ensure_swagger_connection()
             ftd_ep2 = connection.device.interfaces['ftd_ep2']
@@ -365,6 +375,7 @@ class CommonSetup(aetest.CommonSetup):
 
     @aetest.subsection
     def swagger_configure_new_dhcp(self, steps):
+        """This method configures a new DHCP pool on FTD via SWAGGER"""
         with steps.start("Configure new DHCP on FTD"):
             connection = self.ensure_swagger_connection()
             ftd_ep2 = connection.device.interfaces['ftd_ep2']
@@ -375,6 +386,7 @@ class CommonSetup(aetest.CommonSetup):
 
     @aetest.subsection
     def swagger_configure_ospf(self, steps):
+        """This method configures OSPF on FTD via SWAGGER"""
         with steps.start("Configure OSPF on FTD"):
             connection = self.ensure_swagger_connection()
             try:
@@ -397,6 +409,7 @@ class CommonSetup(aetest.CommonSetup):
 
     @aetest.subsection
     def swagger_add_allow_rule(self, steps):
+        """This method is used to add an allow rule on FTD in order to allow traffic to flow through it."""
         with steps.start("Add allow rule on FTD"):
             connection = self.ensure_swagger_connection()
             try:
@@ -409,6 +422,7 @@ class CommonSetup(aetest.CommonSetup):
 
     @aetest.subsection
     def swagger_deploy(self, steps):
+        """This method is being used to deploy actual configuration on FTD"""
         with steps.start("Deploy FTD configuration"):
             connection = self.ensure_swagger_connection()
             try:
