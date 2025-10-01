@@ -251,6 +251,83 @@ class SwaggerConnector:
                 break
             time.sleep(2)
 
+    def bypass_nat(
+        self,
+        rule_name="NO_TRANSLATION",
+        container_name="NGFW-Before-Auto-NAT-Policy",
+        src_obj_name="IPv4-Private-192.168.0.0-16",
+        dst_obj_name="IPv4-Private-192.168.0.0-16",
+        enabled=True
+    ):
+        containers = self.client.NAT.getManualNatRuleContainerList().result()
+        items = getattr(containers, "items", None) or containers.get("items", [])
+        container = next(c for c in items if (getattr(c, "name", None) or c.get("name")) == container_name)
+        parent_id = getattr(container, "id", None) or container.get("id")
+
+        src_list = self.client.NetworkObject.getNetworkObjectList(filter=f"name:{src_obj_name}").result()
+        dst_list = self.client.NetworkObject.getNetworkObjectList(filter=f"name:{dst_obj_name}").result()
+        src = (getattr(src_list, "items", None) or src_list.get("items", []))[0]
+        dst = (getattr(dst_list, "items", None) or dst_list.get("items", []))[0]
+
+        src_ref = {"id": getattr(src, "id", None) or src.get("id"),
+                   "name": getattr(src, "name", None) or src.get("name"),
+                   "type": "networkobject"}
+        dst_ref = {"id": getattr(dst, "id", None) or dst.get("id"),
+                   "name": getattr(dst, "name", None) or dst.get("name"),
+                   "type": "networkobject"}
+
+        body = {
+            "type": "manualnatrule",
+            "name": rule_name,
+            "enabled": bool(enabled),
+            "natType": "STATIC",
+            "originalSource": src_ref,
+            "translatedSource": src_ref,
+            "originalDestination": dst_ref,
+            "translatedDestination": dst_ref,
+            "noProxyArp": False,
+            "routeLookup": False,
+            "unidirectional": False,
+        }
+
+        return self.client.NAT.addManualNatRule(parentId=parent_id, body=body).result()
+
+
+    def add_allow_rule(self, policy_name="NGFW-Access-Policy", rule_name="ALLOW_ALL"):
+
+        policies = self.client.AccessPolicy.getAccessPolicyList().result()
+        items = getattr(policies, "items", None) or policies.get("items", [])
+        policy = next(p for p in items if (getattr(p, "name", None) or p.get("name")) == policy_name)
+        policy_id = getattr(policy, "id", None) or policy.get("id")
+
+        nets = self.client.NetworkObject.getNetworkObjectList(
+            filter="name:IPv4-Private-192.168.0.0-16"
+        ).result()
+        net = getattr(nets, "items", None)[0] if getattr(nets, "items", None) else nets["items"][0]
+
+        ref = {
+            "id": getattr(net, "id", None) or net.get("id"),
+            "name": getattr(net, "name", None) or net.get("name"),
+            "type": "networkobject",
+        }
+
+        body = {
+            "type": "accessrule",
+            "name": rule_name,
+            "ruleAction": "PERMIT",
+            "eventLogAction": "LOG_NONE",
+            "logFiles": False,
+            "sourceNetworks": [ref],
+            "destinationNetworks": [ref],
+            "sourceZones": [],
+            "destinationZones": [],
+            "sourcePorts": [],
+            "destinationPorts": [],
+            "urlFilter": {"type": "embeddedurlfilter", "urlCategories": [], "urlObjects": []},
+        }
+
+        return self.client.AccessPolicy.addAccessRule(parentId=policy_id, body=body).result()
+
 
 
 
