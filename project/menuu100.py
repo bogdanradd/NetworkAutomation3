@@ -3,7 +3,7 @@
 import sys
 import subprocess
 import pathlib
-from try_attacks import run_ping_1, run_ping_2, run_nmap, run_dos, ping_and_dos
+from try_attacks import run_ping_1, run_ping_2, run_nmap, run_dos, ping_and_dos, test_ssh_acl
 
 
 def configure_devices():
@@ -30,6 +30,7 @@ def display_menu():
         5) Run DOS from Attacker to DockerGuest-1
         6) Run PING and DOS at the same time
         7) Add defence policies on FTD
+        8) Test SSH ACL (Attacker -> IOU1)
         0) Exit
         """)
 
@@ -70,6 +71,11 @@ def display_menu():
                 configure_ftd_defence()
             except Exception as e:
                 print('Failed to configure FTD defence', e)
+        elif choice == '8':
+            try:
+                test_ssh_acl()
+            except Exception as e:
+                print('Failed to test SSH ACL', e)
         elif choice == '0':
             break
 

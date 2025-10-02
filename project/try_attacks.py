@@ -9,6 +9,21 @@ REMOTE = 'osboxes@192.168.201.100'
 SSH_KEY = f"/home/{os.environ['SUDO_USER']}/.ssh/guest2_ed25519"
 
 
+def test_ssh_acl():
+    dos = subprocess.run(
+        [
+            'ssh',
+            '-i', SSH_KEY,
+            '-o', 'BatchMode=yes',
+            '-o', 'StrictHostKeyChecking=no',
+            REMOTE,
+            'ssh', '-l', 'admin', '192.168.201.1'
+        ],
+        capture_output=True,
+        text=True,
+    )
+    print(dos.stdout)
+
 def run_ping_1():
     """This method is used to send a ping from the main container to DockerGuest-1"""
     with (subprocess.Popen(['ping', '-c', '15', '192.168.205.100'],
