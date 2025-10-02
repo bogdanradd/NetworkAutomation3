@@ -1,3 +1,4 @@
+"""Add dhcp pool commands"""
 dhcp_commands = [
     'ip dhcp pool GUEST',
     'network {guest_nw} {guest_sm}',

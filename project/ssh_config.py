@@ -1,3 +1,4 @@
+"""SSH commands"""
 commands = [
     "\n",
     "conf t",

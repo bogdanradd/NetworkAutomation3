@@ -22,6 +22,7 @@ def run_ping_1():
             print(line, end='')
         ping.wait()
 
+
 def run_ping_2():
     """This method is used to send a ping from Attacker to DockerGuest-1"""
     dos = subprocess.run(
@@ -37,6 +38,8 @@ def run_ping_2():
         text=True,
     )
     print(dos.stdout)
+
+
 def run_nmap():
     """This method is used to launch a nmap from Attacker to DockerGuest-1"""
     nmap = subprocess.run(
@@ -83,5 +86,3 @@ def ping_and_dos():
     t2.start()
     t1.join()
     t2.join()
-
-

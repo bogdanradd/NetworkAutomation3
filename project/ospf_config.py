@@ -1,3 +1,4 @@
+"""Enable ospf commands"""
 ospf_commands = [
     'router ospf 1',
     'exit',
