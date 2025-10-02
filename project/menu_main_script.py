@@ -21,8 +21,12 @@ from dhcp_config import dhcp_commands
 from ospf_config import ospf_commands
 from ssh_acl import acl_commands
 
-obj = AttrDict()
-print(sys.path)
+
+class DoConfig(aetest.Testcase):
+    """ This test does nothing, it's just here so pyATS runs CommonSetup"""
+    @aetest.test
+    def noop(self):
+        pass
 
 
 async def telnet_configure_ssh(conn: TelnetConnection, templates, prompt, **kwargs):
