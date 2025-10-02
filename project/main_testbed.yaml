@@ -33,7 +33,7 @@ devices:
         class: lib.connectors.async_telnet_conn.TelnetConnection
         protocol: telnet
         ip: 92.81.55.146
-        port: 5045
+        port: 5020
         credentials:
           login:
             username: admin
@@ -63,7 +63,7 @@ devices:
         class: lib.connectors.async_telnet_conn.TelnetConnection
         protocol: telnet
         ip: 92.81.55.146
-        port: 5033
+        port: 5021
         credentials:
           login:
             username: admin
@@ -95,7 +95,7 @@ devices:
         class: lib.connectors.async_telnet_conn.TelnetConnection
         protocol: telnet
         ip: 92.81.55.146
-        port: 5003
+        port: 5023
         credentials:
           login:
             username: admin
@@ -141,7 +141,7 @@ devices:
         class: lib.connectors.async_telnet_conn.TelnetConnection
         protocol: telnet
         ip: 92.81.55.146
-        port: 5005
+        port: 5036
         credentials:
           login:
             username: admin

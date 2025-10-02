@@ -14,9 +14,9 @@ def display_menu():
         print("""
         ############### MENU ###############\n
         1) Configure devices
-        2) Run PING from main container to IOU1
-        3) Run NMAP from Attacker to 192.168.200.0/24
-        4) Run DOS from Attacker to 192.168.200.254
+        2) Run PING from main container to DockerGuest-1
+        3) Run NMAP from Attacker to 192.168.205.100
+        4) Run DOS from Attacker to 192.168.205.100
         5) Run PING and DOS at the same time
         0) Exit
         """)

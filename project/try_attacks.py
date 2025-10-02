@@ -8,7 +8,7 @@ SSH_KEY = f"/home/{os.environ['SUDO_USER']}/.ssh/guest2_ed25519"
 
 
 def run_ping():
-    ping = subprocess.Popen(['ping','-c','15', '192.168.200.1'],
+    ping = subprocess.Popen(['ping','-c','15', '192.168.205.100'],
                             stdout=subprocess.PIPE,
                             stderr=subprocess.PIPE,
                             stdin=subprocess.PIPE,
@@ -27,7 +27,7 @@ def run_nmap():
             '-o', 'BatchMode=yes',
             '-o', 'StrictHostKeyChecking=no',
             REMOTE,
-            'sudo', '-n', 'nmap', '-sS', '--top-ports', '100', '-T4', '192.168.200.0/24',
+            'sudo', '-n', 'nmap', '-sS', '--top-ports', '5', '-T5', '192.168.205.100',
         ],
         capture_output=True, text=True
     )
@@ -42,7 +42,7 @@ def run_dos():
             '-o', 'BatchMode=yes',
             '-o', 'StrictHostKeyChecking=no',
             REMOTE,
-            'sudo', '-n', 'timeout', '10s', 'hping3', '-S', '-p', '80', '--flood', '-q', '192.168.200.254',
+            'sudo', '-n', 'timeout', '10s', 'hping3', '-S', '-p', '80', '--flood', '-q', '192.168.205.100',
         ],
         capture_output=True, text=True
     )
