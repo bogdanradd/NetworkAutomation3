@@ -161,9 +161,8 @@ class SwaggerConnector:
     def configure_ospf(self, vrf_id, name, process_id,
                            area_id, if_to_cidr):
         """
-        Create OSPF process with area 0 and two (or more) areaNetworks, each
-        tied to a *distinct* network object matching the interface subnet.
-        Example if_to_cidr: [("csr_ftd","192.168.204.0/24"), ("ftd_ep2","192.168.205.0/24")]
+        Create OSPF process with area 0 and two areaNetworks, each
+        tied to a network object matching the interface subnet.
         """
         Ref = self.client.get_model("ReferenceModel")
 
@@ -319,6 +318,44 @@ class SwaggerConnector:
             "logFiles": False,
             "sourceNetworks": [ref],
             "destinationNetworks": [ref],
+            "sourceZones": [],
+            "destinationZones": [],
+            "sourcePorts": [],
+            "destinationPorts": [],
+            "urlFilter": {"type": "embeddedurlfilter", "urlCategories": [], "urlObjects": []},
+        }
+
+        return self.client.AccessPolicy.addAccessRule(parentId=policy_id, body=body).result()
+
+    def add_attacker_rule(self, policy_name='NGFW-Access-Policy', rule_name='DENY_ATTACKER', cidrs=['192.168.201.0/24', '192.168.205.0/24']):
+        policies = self.client.AccessPolicy.getAccessPolicyList().result()
+        items = getattr(policies, "items", None) or policies.get("items", [])
+        policy = next(p for p in items if (getattr(p, "name", None) or p.get("name")) == policy_name)
+        policy_id = getattr(policy, "id", None) or policy.get("id")
+
+        def ensure_netobj(cidr: str):
+            net = ipaddress.ip_network(cidr, strict=False)
+            name = f"NET_{net.network_address}_{net.prefixlen}"
+            existing = self.client.NetworkObject.getNetworkObjectList(
+                filter=f"name:{name}"
+            ).result()
+            if existing["items"]:
+                return existing["items"][0]
+            body = {"type": "networkobject", "name": name, "subType": "NETWORK",
+                    "value": f"{net.network_address}/{net.prefixlen}"}
+            return self.client.NetworkObject.addNetworkObject(body=body).result()
+
+        source = ensure_netobj(cidrs[0])
+        destination = ensure_netobj(cidrs[1])
+
+        body = {
+            "type": "accessrule",
+            "name": rule_name,
+            "ruleAction": "PERMIT",
+            "eventLogAction": "LOG_NONE",
+            "logFiles": False,
+            "sourceNetworks": [source],
+            "destinationNetworks": [destination],
             "sourceZones": [],
             "destinationZones": [],
             "sourcePorts": [],
