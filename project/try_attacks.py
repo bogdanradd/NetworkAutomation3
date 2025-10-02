@@ -9,7 +9,7 @@ REMOTE = 'osboxes@192.168.201.100'
 SSH_KEY = f"/home/{os.environ['SUDO_USER']}/.ssh/guest2_ed25519"
 
 
-def run_ping():
+def run_ping_1():
     """This method is used to send a ping from the main container to DockerGuest-1"""
     with (subprocess.Popen(['ping', '-c', '15', '192.168.205.100'],
                            stdout=subprocess.PIPE,
@@ -22,7 +22,21 @@ def run_ping():
             print(line, end='')
         ping.wait()
 
-
+def run_ping_2():
+    """This method is used to send a ping from Attacker to DockerGuest-1"""
+    dos = subprocess.run(
+        [
+            'ssh',
+            '-i', SSH_KEY,
+            '-o', 'BatchMode=yes',
+            '-o', 'StrictHostKeyChecking=no',
+            REMOTE,
+            'ping', '-c', '5', '192.168.205.100'
+        ],
+        capture_output=True,
+        text=True,
+    )
+    print(dos.stdout)
 def run_nmap():
     """This method is used to launch a nmap from Attacker to DockerGuest-1"""
     nmap = subprocess.run(
@@ -54,7 +68,6 @@ def run_dos():
         ],
         capture_output=True,
         text=True,
-        check=True,
     )
     print(dos.stdout)
     print(dos.stderr)
@@ -62,7 +75,7 @@ def run_dos():
 
 def ping_and_dos():
     """This method combines both PING and DoS and runs them in separate Threads"""
-    t1 = threading.Thread(target=run_ping)
+    t1 = threading.Thread(target=run_ping_1)
     t2 = threading.Thread(target=run_dos)
     t1.start()
     time.sleep(3.5)
@@ -70,3 +83,5 @@ def ping_and_dos():
     t2.start()
     t1.join()
     t2.join()
+
+

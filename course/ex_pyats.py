@@ -9,7 +9,7 @@ import asyncio
 from project.ssh_config import commands
 
 from lib.connectors.async_telnet_conn import TelnetConnection
-from lib.connectors.rest_conn import RESTConnector
+from course.rest_conn import RESTConnector
 
 obj = AttrDict()
 print(sys.path)

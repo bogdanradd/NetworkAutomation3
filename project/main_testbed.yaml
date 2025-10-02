@@ -33,7 +33,7 @@ devices:
         class: lib.connectors.async_telnet_conn.TelnetConnection
         protocol: telnet
         ip: 92.81.55.146
-        port: 5020
+        port: 5005
         credentials:
           login:
             username: admin
@@ -63,7 +63,7 @@ devices:
         class: lib.connectors.async_telnet_conn.TelnetConnection
         protocol: telnet
         ip: 92.81.55.146
-        port: 5021
+        port: 5006
         credentials:
           login:
             username: admin
@@ -95,7 +95,7 @@ devices:
         class: lib.connectors.async_telnet_conn.TelnetConnection
         protocol: telnet
         ip: 92.81.55.146
-        port: 5023
+        port: 5008
         credentials:
           login:
             username: admin
@@ -105,15 +105,6 @@ devices:
         protocol: ssh
         ip: 192.168.200.3
         port: 22
-        credentials:
-          login:
-            username: admin
-            password: pynet3
-      rest:
-        class: lib.connectors.rest_conn.RESTConnector
-        protocol: https
-        ip: 192.168.200.3
-        port: 443
         credentials:
           login:
             username: admin
@@ -141,7 +132,7 @@ devices:
         class: lib.connectors.async_telnet_conn.TelnetConnection
         protocol: telnet
         ip: 92.81.55.146
-        port: 5036
+        port: 5018
         credentials:
           login:
             username: admin
@@ -151,15 +142,6 @@ devices:
         protocol: ssh
         ip: 192.168.200.4
         port: 22
-        credentials:
-          login:
-            username: admin
-            password: pynet3
-      rest:
-        class: lib.connectors.rest_conn.RESTConnector
-        protocol: https
-        ip: 192.168.200.4
-        port: 443
         credentials:
           login:
             username: admin

@@ -3,13 +3,19 @@
 import sys
 import subprocess
 import pathlib
-from try_attacks import run_ping, run_nmap, run_dos, ping_and_dos
+from try_attacks import run_ping_1, run_ping_2, run_nmap, run_dos, ping_and_dos
 
 
 def configure_devices():
     """This method runs the pyats script that configures the devices"""
     script = pathlib.Path("/tmp/pycharm_project_844/project/menu_main_script.py")
     subprocess.run([sys.executable, str(script)], check=False)
+
+def configure_ftd_defence():
+    """This method runs the pyats script that configures FTD defence policies"""
+    script = pathlib.Path("/tmp/pycharm_project_844/project/add_defence_ftd.py")
+    subprocess.run([sys.executable, str(script)], check=False)
+
 
 
 def display_menu():
@@ -19,9 +25,11 @@ def display_menu():
         ############### MENU ###############\n
         1) Configure devices
         2) Run PING from main container to DockerGuest-1
-        3) Run NMAP from Attacker to 192.168.205.100
-        4) Run DOS from Attacker to 192.168.205.100
-        5) Run PING and DOS at the same time
+        3) Run PING from Attacker to DockerGuest-1
+        4) Run NMAP from Attacker to 192.168.205.100
+        5) Run DOS from Attacker to 192.168.205.100
+        6) Run PING and DOS at the same time
+        7) Add defence policies on FTD
         0) Exit
         """)
 
@@ -34,24 +42,34 @@ def display_menu():
                 print('Configuration script failed', e)
         elif choice == '2':
             try:
-                run_ping()
+                run_ping_1()
             except Exception as e:
                 print('Failed to send PING', e)
         elif choice == '3':
             try:
+                run_ping_2()
+            except Exception as e:
+                print('Failed to send PING', e)
+        elif choice == '4':
+            try:
                 run_nmap()
             except Exception as e:
                 print('Failed to send NMAP', e)
-        elif choice == '4':
+        elif choice == '5':
             try:
                 run_dos()
             except Exception as e:
                 print('Failed to send DOS', e)
-        elif choice == '5':
+        elif choice == '6':
             try:
                 ping_and_dos()
             except Exception as e:
                 print('Failed to run PING and DOS', e)
+        elif choice == '7':
+            try:
+                configure_ftd_defence()
+            except Exception as e:
+                print('Failed to configure FTD defence', e)
         elif choice == '0':
             break
 

@@ -11,10 +11,24 @@ from pyats.topology import Device
 from urllib3.exceptions import InsecureRequestWarning
 
 
+def _ensure_netobj(client, cidr: str):
+    """This method is used to create network objects on FTD"""
+    net = ipaddress.ip_network(cidr, strict=False)
+    name = f"NET_{net.network_address}_{net.prefixlen}"
+    existing = client.NetworkObject.getNetworkObjectList(
+        filter=f"name:{name}"
+    ).result()
+    if existing["items"]:
+        return existing["items"][0]
+    body = {"type": "networkobject", "name": name, "subType": "NETWORK",
+            "value": f"{net.network_address}/{net.prefixlen}"}
+    return client.NetworkObject.addNetworkObject(body=body).result()
+
+
 class SwaggerConnector:
     """This class takes care of SWAGGER connections"""
 
-    def __init__(self, device: Device):
+    def __init__(self, device: Device, **kwargs):
         self.device: Device = device
         self.client = None
         self.connected = False
@@ -134,7 +148,6 @@ class SwaggerConnector:
                 responses.append(response2)
         return responses
 
-
     def configure_new_dhcp_sv(self, iface):
         """This method is used to configure the new DHCP pool for DockerGuest-1"""
         interface_for_dhcp = None
@@ -173,25 +186,13 @@ class SwaggerConnector:
         """This method is used to create new network objects and assign them in the OSPF process"""
         ref = self.client.get_model("ReferenceModel")
 
-        def ensure_netobj(cidr: str):
-            net = ipaddress.ip_network(cidr, strict=False)
-            name = f"NET_{net.network_address}_{net.prefixlen}"
-            existing = self.client.NetworkObject.getNetworkObjectList(
-                filter=f"name:{name}"
-            ).result()
-            if existing["items"]:
-                return existing["items"][0]
-            body = {"type": "networkobject", "name": name, "subType": "NETWORK",
-                    "value": f"{net.network_address}/{net.prefixlen}"}
-            return self.client.NetworkObject.addNetworkObject(body=body).result()
-
         if_list = self.client.Interface.getPhysicalInterfaceList().result()["items"]
         name_to_if = {i.name: i for i in if_list}
 
         area_networks = []
         for if_name, cidr in if_to_cidr:
             itf = name_to_if[if_name]
-            netobj = ensure_netobj(cidr)
+            netobj = _ensure_netobj(self.client, cidr)
             area_networks.append({
                 "type": "areanetwork",
                 "ipv4Network": ref(id=netobj.id, name=netobj.name, type="networkobject"),
@@ -258,49 +259,6 @@ class SwaggerConnector:
                 break
             time.sleep(2)
 
-
-    def bypass_nat(
-            self,
-            rule_name="NO_TRANSLATION",
-            container_name="NGFW-Before-Auto-NAT-Policy",
-            src_obj_name="IPv4-Private-192.168.0.0-16",
-            dst_obj_name="IPv4-Private-192.168.0.0-16",
-            enabled=True
-    ):
-        """This method is used to create a rule in order to stop NAT from translating packets"""
-        containers = self.client.NAT.getManualNatRuleContainerList().result()
-        items = getattr(containers, "items", None) or containers.get("items", [])
-        container = next(c for c in items if (getattr(c, "name", None) or c.get("name")) == container_name)
-        parent_id = getattr(container, "id", None) or container.get("id")
-
-        src_list = self.client.NetworkObject.getNetworkObjectList(filter=f"name:{src_obj_name}").result()
-        dst_list = self.client.NetworkObject.getNetworkObjectList(filter=f"name:{dst_obj_name}").result()
-        src = (getattr(src_list, "items", None) or src_list.get("items", []))[0]
-        dst = (getattr(dst_list, "items", None) or dst_list.get("items", []))[0]
-
-        src_ref = {"id": getattr(src, "id", None) or src.get("id"),
-                   "name": getattr(src, "name", None) or src.get("name"),
-                   "type": "networkobject"}
-        dst_ref = {"id": getattr(dst, "id", None) or dst.get("id"),
-                   "name": getattr(dst, "name", None) or dst.get("name"),
-                   "type": "networkobject"}
-
-        body = {
-            "type": "manualnatrule",
-            "name": rule_name,
-            "enabled": bool(enabled),
-            "natType": "STATIC",
-            "originalSource": src_ref,
-            "translatedSource": src_ref,
-            "originalDestination": dst_ref,
-            "translatedDestination": dst_ref,
-            "noProxyArp": False,
-            "routeLookup": False,
-            "unidirectional": False,
-        }
-
-        return self.client.NAT.addManualNatRule(parentId=parent_id, body=body).result()
-
     def add_allow_rule(self, policy_name="NGFW-Access-Policy", rule_name="ALLOW_ALL"):
         """This method is used to add a rule that allows all traffic through FTD"""
 
@@ -338,35 +296,39 @@ class SwaggerConnector:
         return self.client.AccessPolicy.addAccessRule(parentId=policy_id, body=body).result()
 
     def add_attacker_rule(self, cidrs, policy_name='NGFW-Access-Policy', rule_name='DENY_ATTACKER'):
-        """This method is used to add a rule that denies all traffic from Attacker's network"""
+        """This method is used to add a rule against Attacker"""
         policies = self.client.AccessPolicy.getAccessPolicyList().result()
         items = getattr(policies, "items", None) or policies.get("items", [])
         policy = next(p for p in items if (getattr(p, "name", None) or p.get("name")) == policy_name)
         policy_id = getattr(policy, "id", None) or policy.get("id")
 
-        def ensure_netobj(cidr: str):
-            net = ipaddress.ip_network(cidr, strict=False)
-            name = f"NET_{net.network_address}_{net.prefixlen}"
-            existing = self.client.NetworkObject.getNetworkObjectList(
-                filter=f"name:{name}"
+        rules = self.client.AccessPolicy.getAccessRuleList(parentId=policy_id).result()
+        r_items = getattr(rules, "items", None) or rules.get("items", [])
+        allow = next((r for r in r_items if (getattr(r, "name", None) or r.get("name")) == "ALLOW_ALL"), None)
+        if allow:
+            self.client.AccessPolicy.deleteAccessRule(
+                parentId=policy_id,
+                objId=getattr(allow, "id", None) or allow.get("id")
             ).result()
-            if existing["items"]:
-                return existing["items"][0]
-            body = {"type": "networkobject", "name": name, "subType": "NETWORK",
-                    "value": f"{net.network_address}/{net.prefixlen}"}
-            return self.client.NetworkObject.addNetworkObject(body=body).result()
 
-        source = ensure_netobj(cidrs[0])
-        destination = ensure_netobj(cidrs[1])
+        src_obj = _ensure_netobj(self.client, cidrs[0])
+        dst_obj = _ensure_netobj(self.client, cidrs[1])
+        src_ref = {"id": getattr(src_obj, "id", None) or src_obj.get("id"),
+                   "name": getattr(src_obj, "name", None) or src_obj.get("name"),
+                   "type": "networkobject"}
+        dst_ref = {"id": getattr(dst_obj, "id", None) or dst_obj.get("id"),
+                   "name": getattr(dst_obj, "name", None) or dst_obj.get("name"),
+                   "type": "networkobject"}
 
         body = {
             "type": "accessrule",
             "name": rule_name,
-            "ruleAction": "PERMIT",
+            "enabled": True,
+            "ruleAction": "DENY",
             "eventLogAction": "LOG_NONE",
             "logFiles": False,
-            "sourceNetworks": [source],
-            "destinationNetworks": [destination],
+            "sourceNetworks": [src_ref],
+            "destinationNetworks": [dst_ref],
             "sourceZones": [],
             "destinationZones": [],
             "sourcePorts": [],
@@ -374,4 +336,7 @@ class SwaggerConnector:
             "urlFilter": {"type": "embeddedurlfilter", "urlCategories": [], "urlObjects": []},
         }
 
-        return self.client.AccessPolicy.addAccessRule(parentId=policy_id, body=body).result()
+        return self.client.AccessPolicy.addAccessRule(
+            parentId=policy_id,
+            body=body,
+        ).result()
