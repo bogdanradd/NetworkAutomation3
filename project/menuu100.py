@@ -26,8 +26,8 @@ def display_menu():
         1) Configure devices
         2) Run PING from main container to DockerGuest-1
         3) Run PING from Attacker to DockerGuest-1
-        4) Run NMAP from Attacker to 192.168.205.100
-        5) Run DOS from Attacker to 192.168.205.100
+        4) Run NMAP from Attacker to DockerGuest-1
+        5) Run DOS from Attacker to DockerGuest-1
         6) Run PING and DOS at the same time
         7) Add defence policies on FTD
         0) Exit
