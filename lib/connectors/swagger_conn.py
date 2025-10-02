@@ -1,17 +1,20 @@
+"""This module represents a connector for SWAGGER connections"""
+
 import ipaddress
 import json
 import requests
 import urllib3
 import time
 from bravado.client import SwaggerClient
-from pyats.topology import Device
 from bravado.requests_client import RequestsClient
+from pyats.topology import Device
 from urllib3.exceptions import InsecureRequestWarning
 
 
 class SwaggerConnector:
+    """This class takes care of SWAGGER connections"""
 
-    def __init__(self, device: Device, **kwargs):
+    def __init__(self, device: Device):
         self.device: Device = device
         self.client = None
         self.connected = False
@@ -25,6 +28,7 @@ class SwaggerConnector:
         urllib3.disable_warnings(InsecureRequestWarning)
 
     def connect(self):
+        """This method connects via SWAGGER"""
         host = self.device.connections.swagger.ip
         port = self.device.connections.swagger.port
         protocol = self.device.connections.swagger.protocol
@@ -38,6 +42,7 @@ class SwaggerConnector:
         return self
 
     def __login(self):
+        """This method is used to login via SWAGGER with credentials from testbed"""
         endpoint = '/api/fdm/latest/fdm/token'
         response = requests.post(
             url=self._url + endpoint,
@@ -45,9 +50,9 @@ class SwaggerConnector:
             verify=False,
             data=json.dumps(
                 {
-                'username': self.device.connections.telnet.credentials.login.username,
-                'password': self.device.connections.telnet.credentials.login.password.plaintext,
-                'grant_type': 'password',
+                    'username': self.device.connections.telnet.credentials.login.username,
+                    'password': self.device.connections.telnet.credentials.login.password.plaintext,
+                    'grant_type': 'password',
                 }
             )
         )
@@ -57,6 +62,7 @@ class SwaggerConnector:
         self._headers.update({'Authorization': f'{self.__token_type} {self.__access_token}'})
 
     def get_swagger_client(self):
+        """This method is used to return the SWAGGER client"""
         endpoint = '/apispec/ngfw.json'
         http_client = RequestsClient()
         http_client.session.verify = False
@@ -71,6 +77,7 @@ class SwaggerConnector:
         return self.client
 
     def finish_initial_setup(self):
+        """This method is used to finish the initial GUI setup"""
 
         body = {
             "type": "initialprovision",
@@ -83,6 +90,7 @@ class SwaggerConnector:
         return self.client.InitialProvision.addInitialProvision(body=body).result()
 
     def delete_existing_dhcp_sv(self):
+        """This method is used to delete the existing DHCP pool"""
         dhcp_servers = self.client.DHCPServerContainer.getDHCPServerContainerList().result()
         for dhcp_server in dhcp_servers['items']:
             dhcp_serv_list = dhcp_server['servers']
@@ -95,6 +103,7 @@ class SwaggerConnector:
             return response
 
     def configure_ftd_interfaces(self, interface1, interface2):
+        """This method is used to configure the other FTD interfaces"""
         existing_interfaces = self.client.Interface.getPhysicalInterfaceList().result()
         responses = []
         for interface in existing_interfaces['items']:
@@ -125,7 +134,9 @@ class SwaggerConnector:
                 responses.append(response2)
         return responses
 
+
     def configure_new_dhcp_sv(self, iface):
+        """This method is used to configure the new DHCP pool for DockerGuest-1"""
         interface_for_dhcp = None
         existing_interfaces = self.client.Interface.getPhysicalInterfaceList().result()
         for interface in existing_interfaces['items']:
@@ -157,14 +168,10 @@ class SwaggerConnector:
             ).result()
             return response
 
-
     def configure_ospf(self, vrf_id, name, process_id,
-                           area_id, if_to_cidr):
-        """
-        Create OSPF process with area 0 and two areaNetworks, each
-        tied to a network object matching the interface subnet.
-        """
-        Ref = self.client.get_model("ReferenceModel")
+                       area_id, if_to_cidr):
+        """This method is used to create new network objects and assign them in the OSPF process"""
+        ref = self.client.get_model("ReferenceModel")
 
         def ensure_netobj(cidr: str):
             net = ipaddress.ip_network(cidr, strict=False)
@@ -187,8 +194,8 @@ class SwaggerConnector:
             netobj = ensure_netobj(cidr)
             area_networks.append({
                 "type": "areanetwork",
-                "ipv4Network": Ref(id=netobj.id, name=netobj.name, type="networkobject"),
-                "tagInterface": Ref(
+                "ipv4Network": ref(id=netobj.id, name=netobj.name, type="networkobject"),
+                "tagInterface": ref(
                     id=itf.id, name=itf.name, type="physicalinterface",
                     hardwareName=getattr(itf, "hardwareName", None)
                 ),
@@ -237,7 +244,8 @@ class SwaggerConnector:
 
         return self.client.OSPF.addOSPF(vrfId=vrf_id, body=body).result()
 
-    def deploy(self, force=True):
+    def deploy(self):
+        """This method is used to deploy current config on FTD"""
         res = self.client.Deployment.addDeployment(body={"forceDeploy": True}).result()
         dep_id = getattr(res, "id", None) or res.get("id")
 
@@ -250,14 +258,16 @@ class SwaggerConnector:
                 break
             time.sleep(2)
 
+
     def bypass_nat(
-        self,
-        rule_name="NO_TRANSLATION",
-        container_name="NGFW-Before-Auto-NAT-Policy",
-        src_obj_name="IPv4-Private-192.168.0.0-16",
-        dst_obj_name="IPv4-Private-192.168.0.0-16",
-        enabled=True
+            self,
+            rule_name="NO_TRANSLATION",
+            container_name="NGFW-Before-Auto-NAT-Policy",
+            src_obj_name="IPv4-Private-192.168.0.0-16",
+            dst_obj_name="IPv4-Private-192.168.0.0-16",
+            enabled=True
     ):
+        """This method is used to create a rule in order to stop NAT from translating packets"""
         containers = self.client.NAT.getManualNatRuleContainerList().result()
         items = getattr(containers, "items", None) or containers.get("items", [])
         container = next(c for c in items if (getattr(c, "name", None) or c.get("name")) == container_name)
@@ -291,8 +301,8 @@ class SwaggerConnector:
 
         return self.client.NAT.addManualNatRule(parentId=parent_id, body=body).result()
 
-
     def add_allow_rule(self, policy_name="NGFW-Access-Policy", rule_name="ALLOW_ALL"):
+        """This method is used to add a rule that allows all traffic through FTD"""
 
         policies = self.client.AccessPolicy.getAccessPolicyList().result()
         items = getattr(policies, "items", None) or policies.get("items", [])
@@ -327,7 +337,8 @@ class SwaggerConnector:
 
         return self.client.AccessPolicy.addAccessRule(parentId=policy_id, body=body).result()
 
-    def add_attacker_rule(self, policy_name='NGFW-Access-Policy', rule_name='DENY_ATTACKER', cidrs=['192.168.201.0/24', '192.168.205.0/24']):
+    def add_attacker_rule(self, cidrs, policy_name='NGFW-Access-Policy', rule_name='DENY_ATTACKER'):
+        """This method is used to add a rule that denies all traffic from Attacker's network"""
         policies = self.client.AccessPolicy.getAccessPolicyList().result()
         items = getattr(policies, "items", None) or policies.get("items", [])
         policy = next(p for p in items if (getattr(p, "name", None) or p.get("name")) == policy_name)
@@ -364,8 +375,3 @@ class SwaggerConnector:
         }
 
         return self.client.AccessPolicy.addAccessRule(parentId=policy_id, body=body).result()
-
-
-
-
-

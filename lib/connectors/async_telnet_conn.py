@@ -1,3 +1,5 @@
+"""This module represents a connector for telnet connections"""
+
 import asyncio
 import re
 import time
@@ -6,43 +8,50 @@ import telnetlib3
 HOST = '92.81.55.146'
 PORT = 5104
 
+
 def render_commands(templates, **kwargs):
+    """This method is used to render commands and format them"""
     return [str(t).format(**kwargs) for t in templates]
 
+
 class TelnetConnection:
+    """This class is used to take care of the telnet connection"""
+
     def __init__(self, host, port):
         self.host = host
         self.port = port
+        self.reader = None
+        self.writer = None
 
     def __enter__(self):
         return self
 
     async def connect(self):
+        """This method is used to connect through telnet and return the reader and writer"""
         self.reader, self.writer = await telnetlib3.open_connection(self.host, self.port)
 
-    def print_info(self):
-        print('Reader: {}'.format(self.reader))
-        print('Writer: {}'.format(self.writer))
-
     async def readuntil(self, separator: str):
+        """This method is used to read until command is received"""
         response = await self.reader.readuntil(separator.encode())
         return response.decode()
 
     async def read(self, n: int):
+        """This method is used to read n bytes"""
         return await self.reader.read(n)
 
     def write(self, data: str):
+        """This method is used to send commands in CLI"""
         self.writer.write(data + '\n')
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.write('\n')
 
-
     async def execute_commands(self, command: list, prompt):
+        """This method is used to execute certain sets of commands in CLI"""
         output = []
         self.write('')
         time.sleep(1)
-        init_prompt = await self.read(n = 500)
+        init_prompt = await self.read(n=500)
         self.write('terminal length 0')
         time.sleep(1)
         if '>' in init_prompt:
@@ -55,12 +64,13 @@ class TelnetConnection:
             output.append(out)
         return output
 
-
     async def configure_ssh(self, templates, prmt, **kwargs):
+        """This method is used to configure SSH on devices"""
         commands = render_commands(templates, **kwargs)
         return await self.execute_commands(commands, prmt)
 
     async def configure_ftd(self, hostname, ip, netmask, gateway, password):
+        """This method is used to configure FTD initial setup"""
         self.write('')
         time.sleep(1)
         out = await self.read(n=1000)
@@ -138,16 +148,3 @@ class TelnetConnection:
         if 'Manage the device locally? (yes/no) [yes]:' in out:
             self.write('')
             time.sleep(15)
-
-
-
-if __name__ == '__main__':
-    conn = TelnetConnection(HOST, PORT)
-
-    async def main():
-        await conn.connect()
-        conn.write('\n')
-        await conn.readuntil('\n')
-        conn.print_info()
-
-    asyncio.run(main())

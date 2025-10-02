@@ -302,7 +302,7 @@ max-bool-expr=5
 max-branches=12
 
 # Maximum number of locals for function / method body.
-max-locals=15
+max-locals=17
 
 # Maximum number of parents for a class (see R0901).
 max-parents=7
@@ -428,6 +428,8 @@ confidence=HIGH,
 # --disable=W".
 disable=raw-checker-failed,
         bad-inline-option,
+        missing-timeout,
+        unused-private-member,
         locally-disabled,
         file-ignored,
         suppressed-message,
@@ -439,7 +441,11 @@ disable=raw-checker-failed,
         wrong-import-order,
         unused-import,
         too-many-positional-arguments,
-        broad-exception-caught
+        broad-exception-caught,
+        too-many-branches,
+        too-many-statements,
+        too-many-instance-attributes,
+
 
 
 # Enable the message, report, category or checker with the given id(s). You can

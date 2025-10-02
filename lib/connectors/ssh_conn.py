@@ -1,18 +1,19 @@
+"""This module represents the connector for SSH connections"""
 
 from netmiko import ConnectHandler
-from genie.libs.conf.interface.iosxe import Interface
-from genie.libs.conf.ospf import Ospf
-
 
 HOST = '192.168.100.1'
 PORT = 22
 
+
 def render_commands(templates, **kwargs):
+    """This method is used to render commands and format them"""
     return [str(t).format(**kwargs) for t in templates]
 
-class SSHConnection:
 
-    def __init__(self, host, port, username, password, device_type = 'cisco_ios'):
+class SSHConnection:
+    """This class is used to take care of the SSH connections"""
+    def __init__(self, host, port, username, password, device_type='cisco_ios'):
         self.device_type = device_type
         self.host = host
         self.port = port
@@ -20,8 +21,8 @@ class SSHConnection:
         self.password = password
         self.conn = None
 
-
     def connect(self):
+        """This method is used to connect to the device via SSH"""
         self.conn = ConnectHandler(
             device_type=self.device_type,
             host=self.host,
@@ -35,15 +36,14 @@ class SSHConnection:
             pass
         self.conn.send_command('terminal length 0')
 
-    def send_config_set(self, commands: list):
-        return self.conn.send_config_set(commands)
 
     def configure(self, templates, **kwargs):
+        """This method is used to send sets of commands to the device"""
         commands = render_commands(templates, **kwargs)
-        return self.send_config_set(commands)
-
+        return self.conn.send_config_set(commands)
 
     def close(self):
+        """This method is used to close the SSH connection"""
         if self.conn:
             try:
                 self.conn.disconnect()
@@ -55,8 +55,3 @@ class SSHConnection:
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         pass
-
-if __name__ == '__main__':
-    conn = SSHConnection(HOST, PORT, 'admin', 'admin')
-    conn.connect()
-    conn.configure()
