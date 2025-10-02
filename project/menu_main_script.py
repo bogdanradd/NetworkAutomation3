@@ -420,6 +420,7 @@ class CommonSetup(aetest.CommonSetup):
 
     @aetest.subsection
     def add_attacker_rule(self, steps):
+        """This method is used to add a rule against Attacker, so it denies every attack targeting 192.168.205.0/24"""
         with steps.start("Add rule against attacker on FTD"):
             connection = self.ensure_swagger_connection()
             try:
