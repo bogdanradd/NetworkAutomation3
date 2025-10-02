@@ -22,12 +22,6 @@ from ospf_config import ospf_commands
 from ssh_acl import acl_commands
 
 
-class DoConfig(aetest.Testcase):
-    """ This test does nothing, it's just here so pyATS runs CommonSetup"""
-    @aetest.test
-    def noop(self):
-        pass
-
 
 async def telnet_configure_ssh(conn: TelnetConnection, templates, prompt, **kwargs):
     """This is a helper function that is being called inside pyats in order to configure the SSH connection on the devices."""
@@ -138,210 +132,210 @@ class CommonSetup(aetest.CommonSetup):
                         subprocess.run(['sudo', 'ip', 'route', 'replace', f'{subnet}', 'via', f'{csr_gw}'],
                                        check=True)
 
-    @aetest.subsection
-    def configure_ssh(self, steps):
-        """This method configures the SSH connection."""
-        for device in self.tb.devices:
-            if self.tb.devices[device].custom.role != 'router':
-                continue
-            with steps.start(f"Configure SSH connection on {device}"):
-                for interface in self.tb.devices[device].interfaces:
-                    if self.tb.devices[device].interfaces[interface].link.name != 'management':
-                        continue
-                    intf_obj = self.tb.devices[device].interfaces[interface]
-                    conn_class = self.tb.devices[device].connections.get(
-                        'telnet', {}
-                    ).get('class', None)
-                    assert conn_class, f'No connection for device {device}'
-                    ip = self.tb.devices[device].connections.telnet.ip.compressed
-                    port = self.tb.devices[device].connections.telnet.port
-                    username = self.tb.devices[device].connections.ssh.credentials.login.username
-                    password = self.tb.devices[device].connections.ssh.credentials.login.password.plaintext
-                    domain = self.tb.devices[device].custom.get('domain', None)
-                    try:
-                        conn: TelnetConnection = conn_class(ip, port)
-                        asyncio.run(
-                            telnet_configure_ssh(
-                                conn,
-                                templates=commands,
-                                prompt='#',
-                                interface=interface,
-                                ip=intf_obj.ipv4.ip.compressed,
-                                sm=intf_obj.ipv4.netmask.exploded,
-                                hostname=device,
-                                username=username,
-                                password=password,
-                                domain=domain,
-                            )
-                        )
-                    except Exception as e:
-                        print(f'Failed to connect to device {device}', e)
-                        continue
-
-    @aetest.subsection
-    def bring_up_ftd_interface(self, steps):
-        """This method adds an ip address to FTD's management interface."""
-        with steps.start("Bring up FTD management interface"):
-            for device in self.tb.devices:
-                if self.tb.devices[device].custom.role != 'firewall':
-                    continue
-                for interface in self.tb.devices[device].interfaces:
-                    if self.tb.devices[device].interfaces[interface].link.name != 'management':
-                        continue
-
-                    intf_obj = self.tb.devices[device].interfaces[interface]
-                    hostname = self.tb.devices[device].custom.hostname
-                    gateway = self.tb.devices['UbuntuServer'].interfaces['ens4'].ipv4.ip.compressed
-                    conn_class = self.tb.devices[device].connections.get('telnet', {}).get('class', None)
-                    assert conn_class, f'No connection for device {device}'
-                    ip = self.tb.devices[device].connections.telnet.ip.compressed
-                    port = self.tb.devices[device].connections.telnet.port
-                    password = self.tb.devices[device].connections.telnet.credentials.login.password.plaintext
-                    conn: TelnetConnection = conn_class(ip, port)
-
-                    asyncio.run(
-                        telnet_configure_ftd(
-                            conn,
-                            hostname=hostname,
-                            ip=intf_obj.ipv4.ip.compressed,
-                            netmask=intf_obj.ipv4.netmask.exploded,
-                            gateway=gateway,
-                            password=password,
-                        )
-                    )
-
-    @aetest.subsection
-    def genie_configure_other_interfaces(self, steps):
-        """This method is used to configure all other interfaces on CSR via GENIE"""
-        with steps.start("Configure other CSR interfaces via GENIE"):
-            try:
-                dev = self.ensure_csr_connection()
-            except Exception as e:
-                print('Failed to connect with genie to CSR', e)
-            for ifname in ("GigabitEthernet2", "GigabitEthernet3"):
-                intf = Interface(name=ifname)
-                intf.device = dev
-                intf.ipv4 = dev.interfaces[ifname].ipv4
-                intf.enabled = True
-                cfg = intf.build_config(apply=False)
-                dev.configure(cfg.cli_config.data)
-
-    @aetest.subsection
-    def genie_configure_ospf(self, steps):
-        """This method is used to configure OSPF on CSR via GENIE"""
-        with steps.start("Configure OSPF on CSR via GENIE"):
-            try:
-                dev = self.ensure_csr_connection()
-            except Exception as e:
-                print('Failed to connect with genie to CSR', e)
-            ospf = Ospf()
-            da = ospf.device_attr[dev]
-            va = da.vrf_attr['default']
-            va.instance = '1'
-            for ifname in ("GigabitEthernet1", "GigabitEthernet2", "GigabitEthernet3"):
-                ia = va.area_attr['0'].interface_attr[ifname]
-                ia.if_admin_control = True
-            cfg = da.build_config(apply=False)
-            dev.configure(cfg.cli_config.data)
-
-    @aetest.subsection
-    def genie_configure_ssh_acl(self, steps):
-        """This method is used to configure an SSH ACL on CSR via GENIE"""
-        with steps.start("Configure SSH ACL on CSR via GENIE"):
-            try:
-                dev = self.ensure_csr_connection()
-            except Exception as e:
-                print('Failed to connect with genie to CSR', e)
-            container_ip = self.tb.devices['UbuntuServer'].interfaces['ens4'].ipv4.ip.compressed
-            cfg = f"""
-            ip access-list standard SSH
-             permit host {container_ip}
-             deny any
-            line vty 0 4
-             access-class SSH in
-             transport input ssh
-            """
-            dev.configure(cfg)
-
-    @aetest.subsection
-    def ssh_configure_interfaces(self, steps):
-        """This method is used to configure all other active interfaces on IOU1 and IOSv via SSH"""
-        for device in self.tb.devices:
-            if self.tb.devices[device].custom.role != 'router':
-                continue
-            if 'unicon' in self.tb.devices[device].connections:
-                continue
-            with steps.start(f"Configure interfaces on {device}"):
-                conn = self.ensure_ssh_connection(device)
-                try:
-                    for interface in self.tb.devices[device].interfaces:
-                        if self.tb.devices[device].interfaces[interface].link.name == 'management':
-                            continue
-                        intf_obj = self.tb.devices[device].interfaces[interface]
-                        print(
-                            conn.configure(
-                                add_ips,
-                                interface=interface,
-                                ip=intf_obj.ipv4.ip.compressed,
-                                sm=intf_obj.ipv4.netmask.exploded,
-                            )
-                        )
-                finally:
-                    conn.close()
-
-    @aetest.subsection
-    def ssh_configure_dhcp_iou1(self, steps):
-        """This method is used to configure a new DHCP pool on IOU1 via SSH"""
-        device = self.tb.devices['IOU1']
-        intf_obj = device.interfaces['Ethernet0/1']
-        guest_network = intf_obj.ipv4.network.network_address.exploded
-        guest_subnetmask = intf_obj.ipv4.netmask.exploded
-        guest_gateway = intf_obj.ipv4.ip.compressed
-        with steps.start("Configure DHCP on IOU1"):
-            conn = self.ensure_ssh_connection('IOU1')
-            try:
-                print(
-                    conn.configure(
-                        dhcp_commands,
-                        guest_nw=guest_network,
-                        guest_gw=guest_gateway,
-                        guest_sm=guest_subnetmask,
-                    )
-                )
-            finally:
-                conn.close()
-
-    @aetest.subsection
-    def ssh_configure_ospf(self, steps):
-        """This method is used to configure OSPF on IOU1 and IOSv via SSH"""
-        for device in self.tb.devices:
-            if self.tb.devices[device].custom.role != 'router':
-                continue
-            if 'unicon' in self.tb.devices[device].connections:
-                continue
-            with steps.start(f"Configure OSPF on {device}"):
-                conn = self.ensure_ssh_connection(device)
-                try:
-                    for interface in self.tb.devices[device].interfaces:
-                        print(conn.configure(ospf_commands, interface=interface))
-                finally:
-                    conn.close()
-
-    @aetest.subsection
-    def ssh_configure_acl(self, steps):
-        """This method is used to configure an ACL SSH on IOU1 and IOSv via SSH"""
-        for device in self.tb.devices:
-            if self.tb.devices[device].custom.role != 'router':
-                continue
-            if 'unicon' in self.tb.devices[device].connections:
-                continue
-            with steps.start(f"Configure ACL on {device}"):
-                conn = self.ensure_ssh_connection(device)
-                try:
-                    container_ip = self.tb.devices['UbuntuServer'].interfaces['ens4'].ipv4.ip.compressed
-                    print(conn.configure(acl_commands, ssh_container=container_ip))
-                finally:
-                    conn.close()
+    # @aetest.subsection
+    # def configure_ssh(self, steps):
+    #     """This method configures the SSH connection."""
+    #     for device in self.tb.devices:
+    #         if self.tb.devices[device].custom.role != 'router':
+    #             continue
+    #         with steps.start(f"Configure SSH connection on {device}"):
+    #             for interface in self.tb.devices[device].interfaces:
+    #                 if self.tb.devices[device].interfaces[interface].link.name != 'management':
+    #                     continue
+    #                 intf_obj = self.tb.devices[device].interfaces[interface]
+    #                 conn_class = self.tb.devices[device].connections.get(
+    #                     'telnet', {}
+    #                 ).get('class', None)
+    #                 assert conn_class, f'No connection for device {device}'
+    #                 ip = self.tb.devices[device].connections.telnet.ip.compressed
+    #                 port = self.tb.devices[device].connections.telnet.port
+    #                 username = self.tb.devices[device].connections.ssh.credentials.login.username
+    #                 password = self.tb.devices[device].connections.ssh.credentials.login.password.plaintext
+    #                 domain = self.tb.devices[device].custom.get('domain', None)
+    #                 try:
+    #                     conn: TelnetConnection = conn_class(ip, port)
+    #                     asyncio.run(
+    #                         telnet_configure_ssh(
+    #                             conn,
+    #                             templates=commands,
+    #                             prompt='#',
+    #                             interface=interface,
+    #                             ip=intf_obj.ipv4.ip.compressed,
+    #                             sm=intf_obj.ipv4.netmask.exploded,
+    #                             hostname=device,
+    #                             username=username,
+    #                             password=password,
+    #                             domain=domain,
+    #                         )
+    #                     )
+    #                 except Exception as e:
+    #                     print(f'Failed to connect to device {device}', e)
+    #                     continue
+    #
+    # @aetest.subsection
+    # def bring_up_ftd_interface(self, steps):
+    #     """This method adds an ip address to FTD's management interface."""
+    #     with steps.start("Bring up FTD management interface"):
+    #         for device in self.tb.devices:
+    #             if self.tb.devices[device].custom.role != 'firewall':
+    #                 continue
+    #             for interface in self.tb.devices[device].interfaces:
+    #                 if self.tb.devices[device].interfaces[interface].link.name != 'management':
+    #                     continue
+    #
+    #                 intf_obj = self.tb.devices[device].interfaces[interface]
+    #                 hostname = self.tb.devices[device].custom.hostname
+    #                 gateway = self.tb.devices['UbuntuServer'].interfaces['ens4'].ipv4.ip.compressed
+    #                 conn_class = self.tb.devices[device].connections.get('telnet', {}).get('class', None)
+    #                 assert conn_class, f'No connection for device {device}'
+    #                 ip = self.tb.devices[device].connections.telnet.ip.compressed
+    #                 port = self.tb.devices[device].connections.telnet.port
+    #                 password = self.tb.devices[device].connections.telnet.credentials.login.password.plaintext
+    #                 conn: TelnetConnection = conn_class(ip, port)
+    #
+    #                 asyncio.run(
+    #                     telnet_configure_ftd(
+    #                         conn,
+    #                         hostname=hostname,
+    #                         ip=intf_obj.ipv4.ip.compressed,
+    #                         netmask=intf_obj.ipv4.netmask.exploded,
+    #                         gateway=gateway,
+    #                         password=password,
+    #                     )
+    #                 )
+    #
+    # @aetest.subsection
+    # def genie_configure_other_interfaces(self, steps):
+    #     """This method is used to configure all other interfaces on CSR via GENIE"""
+    #     with steps.start("Configure other CSR interfaces via GENIE"):
+    #         try:
+    #             dev = self.ensure_csr_connection()
+    #         except Exception as e:
+    #             print('Failed to connect with genie to CSR', e)
+    #         for ifname in ("GigabitEthernet2", "GigabitEthernet3"):
+    #             intf = Interface(name=ifname)
+    #             intf.device = dev
+    #             intf.ipv4 = dev.interfaces[ifname].ipv4
+    #             intf.enabled = True
+    #             cfg = intf.build_config(apply=False)
+    #             dev.configure(cfg.cli_config.data)
+    #
+    # @aetest.subsection
+    # def genie_configure_ospf(self, steps):
+    #     """This method is used to configure OSPF on CSR via GENIE"""
+    #     with steps.start("Configure OSPF on CSR via GENIE"):
+    #         try:
+    #             dev = self.ensure_csr_connection()
+    #         except Exception as e:
+    #             print('Failed to connect with genie to CSR', e)
+    #         ospf = Ospf()
+    #         da = ospf.device_attr[dev]
+    #         va = da.vrf_attr['default']
+    #         va.instance = '1'
+    #         for ifname in ("GigabitEthernet1", "GigabitEthernet2", "GigabitEthernet3"):
+    #             ia = va.area_attr['0'].interface_attr[ifname]
+    #             ia.if_admin_control = True
+    #         cfg = da.build_config(apply=False)
+    #         dev.configure(cfg.cli_config.data)
+    #
+    # @aetest.subsection
+    # def genie_configure_ssh_acl(self, steps):
+    #     """This method is used to configure an SSH ACL on CSR via GENIE"""
+    #     with steps.start("Configure SSH ACL on CSR via GENIE"):
+    #         try:
+    #             dev = self.ensure_csr_connection()
+    #         except Exception as e:
+    #             print('Failed to connect with genie to CSR', e)
+    #         container_ip = self.tb.devices['UbuntuServer'].interfaces['ens4'].ipv4.ip.compressed
+    #         cfg = f"""
+    #         ip access-list standard SSH
+    #          permit host {container_ip}
+    #          deny any
+    #         line vty 0 4
+    #          access-class SSH in
+    #          transport input ssh
+    #         """
+    #         dev.configure(cfg)
+    #
+    # @aetest.subsection
+    # def ssh_configure_interfaces(self, steps):
+    #     """This method is used to configure all other active interfaces on IOU1 and IOSv via SSH"""
+    #     for device in self.tb.devices:
+    #         if self.tb.devices[device].custom.role != 'router':
+    #             continue
+    #         if 'unicon' in self.tb.devices[device].connections:
+    #             continue
+    #         with steps.start(f"Configure interfaces on {device}"):
+    #             conn = self.ensure_ssh_connection(device)
+    #             try:
+    #                 for interface in self.tb.devices[device].interfaces:
+    #                     if self.tb.devices[device].interfaces[interface].link.name == 'management':
+    #                         continue
+    #                     intf_obj = self.tb.devices[device].interfaces[interface]
+    #                     print(
+    #                         conn.configure(
+    #                             add_ips,
+    #                             interface=interface,
+    #                             ip=intf_obj.ipv4.ip.compressed,
+    #                             sm=intf_obj.ipv4.netmask.exploded,
+    #                         )
+    #                     )
+    #             finally:
+    #                 conn.close()
+    #
+    # @aetest.subsection
+    # def ssh_configure_dhcp_iou1(self, steps):
+    #     """This method is used to configure a new DHCP pool on IOU1 via SSH"""
+    #     device = self.tb.devices['IOU1']
+    #     intf_obj = device.interfaces['Ethernet0/1']
+    #     guest_network = intf_obj.ipv4.network.network_address.exploded
+    #     guest_subnetmask = intf_obj.ipv4.netmask.exploded
+    #     guest_gateway = intf_obj.ipv4.ip.compressed
+    #     with steps.start("Configure DHCP on IOU1"):
+    #         conn = self.ensure_ssh_connection('IOU1')
+    #         try:
+    #             print(
+    #                 conn.configure(
+    #                     dhcp_commands,
+    #                     guest_nw=guest_network,
+    #                     guest_gw=guest_gateway,
+    #                     guest_sm=guest_subnetmask,
+    #                 )
+    #             )
+    #         finally:
+    #             conn.close()
+    #
+    # @aetest.subsection
+    # def ssh_configure_ospf(self, steps):
+    #     """This method is used to configure OSPF on IOU1 and IOSv via SSH"""
+    #     for device in self.tb.devices:
+    #         if self.tb.devices[device].custom.role != 'router':
+    #             continue
+    #         if 'unicon' in self.tb.devices[device].connections:
+    #             continue
+    #         with steps.start(f"Configure OSPF on {device}"):
+    #             conn = self.ensure_ssh_connection(device)
+    #             try:
+    #                 for interface in self.tb.devices[device].interfaces:
+    #                     print(conn.configure(ospf_commands, interface=interface))
+    #             finally:
+    #                 conn.close()
+    #
+    # @aetest.subsection
+    # def ssh_configure_acl(self, steps):
+    #     """This method is used to configure an ACL SSH on IOU1 and IOSv via SSH"""
+    #     for device in self.tb.devices:
+    #         if self.tb.devices[device].custom.role != 'router':
+    #             continue
+    #         if 'unicon' in self.tb.devices[device].connections:
+    #             continue
+    #         with steps.start(f"Configure ACL on {device}"):
+    #             conn = self.ensure_ssh_connection(device)
+    #             try:
+    #                 container_ip = self.tb.devices['UbuntuServer'].interfaces['ens4'].ipv4.ip.compressed
+    #                 print(conn.configure(acl_commands, ssh_container=container_ip))
+    #             finally:
+    #                 conn.close()
 
     @aetest.subsection
     def swagger_connect_and_initial_setup(self, steps):
@@ -419,10 +413,21 @@ class CommonSetup(aetest.CommonSetup):
             try:
                 nat = connection.bypass_nat()
                 print(nat)
-                rule = connection.add_allow_rule()
-                print(rule)
+                allow_rule = connection.add_allow_rule()
+                print(allow_rule)
             except HTTPError:
                 print('Could not add allow rule on FTD')
+
+    @aetest.subsection
+    def add_attacker_rule(self, steps):
+        with steps.start("Add rule against attacker on FTD"):
+            connection = self.ensure_swagger_connection()
+            try:
+                deny_rule = connection.add_attacker_rule()
+                print(deny_rule)
+            except HTTPError:
+                print('Could not add rule against attacker on FTD')
+
 
     @aetest.subsection
     def swagger_deploy(self, steps):
