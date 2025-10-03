@@ -7,5 +7,7 @@ def run(label, target):
     print(f"-- {label} --")
     subprocess.run([sys.executable, '-m', 'pylint', '--rcfile', 'pylintrc_main', target, '--exit-zero'], check=False)
 
-run('project', '../project')
-run('lib/connectors', '../lib/connectors')
+
+if __name__ == "__main__":
+    run('project', '../project')
+    run('lib/connectors', '../lib/connectors')

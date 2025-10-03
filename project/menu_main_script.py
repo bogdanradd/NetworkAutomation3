@@ -20,7 +20,6 @@ from ospf_config import ospf_commands
 from ssh_acl import acl_commands
 
 
-
 async def telnet_configure_ssh(conn: TelnetConnection, templates, prompt, **kwargs):
     """This is a helper function that is being called inside pyats in order to configure the SSH connection on the devices."""
     await conn.connect()
@@ -203,59 +202,6 @@ class CommonSetup(aetest.CommonSetup):
                     )
 
     @aetest.subsection
-    def genie_configure_other_interfaces(self, steps):
-        """This method is used to configure all other interfaces on CSR via GENIE"""
-        with steps.start("Configure other CSR interfaces via GENIE"):
-            try:
-                dev = self.ensure_csr_connection()
-            except Exception as e:
-                print('Failed to connect with genie to CSR', e)
-            for ifname in ("GigabitEthernet2", "GigabitEthernet3"):
-                intf = Interface(name=ifname)
-                intf.device = dev
-                intf.ipv4 = dev.interfaces[ifname].ipv4
-                intf.enabled = True
-                cfg = intf.build_config(apply=False)
-                dev.configure(cfg.cli_config.data)
-
-    @aetest.subsection
-    def genie_configure_ospf(self, steps):
-        """This method is used to configure OSPF on CSR via GENIE"""
-        with steps.start("Configure OSPF on CSR via GENIE"):
-            try:
-                dev = self.ensure_csr_connection()
-            except Exception as e:
-                print('Failed to connect with genie to CSR', e)
-            ospf = Ospf()
-            da = ospf.device_attr[dev]
-            va = da.vrf_attr['default']
-            va.instance = '1'
-            for ifname in ("GigabitEthernet1", "GigabitEthernet2", "GigabitEthernet3"):
-                ia = va.area_attr['0'].interface_attr[ifname]
-                ia.if_admin_control = True
-            cfg = da.build_config(apply=False)
-            dev.configure(cfg.cli_config.data)
-
-    @aetest.subsection
-    def genie_configure_ssh_acl(self, steps):
-        """This method is used to configure an SSH ACL on CSR via GENIE"""
-        with steps.start("Configure SSH ACL on CSR via GENIE"):
-            try:
-                dev = self.ensure_csr_connection()
-            except Exception as e:
-                print('Failed to connect with genie to CSR', e)
-            container_ip = self.tb.devices['UbuntuServer'].interfaces['ens4'].ipv4.ip.compressed
-            cfg = f"""
-            ip access-list standard SSH
-             permit host {container_ip}
-             deny any
-            line vty 0 4
-             access-class SSH in
-             transport input ssh
-            """
-            dev.configure(cfg)
-
-    @aetest.subsection
     def ssh_configure_interfaces(self, steps):
         """This method is used to configure all other active interfaces on IOU1 and IOSv via SSH"""
         for device in self.tb.devices:
@@ -336,6 +282,59 @@ class CommonSetup(aetest.CommonSetup):
                     conn.close()
 
     @aetest.subsection
+    def genie_configure_other_interfaces(self, steps):
+        """This method is used to configure all other interfaces on CSR via GENIE"""
+        with steps.start("Configure other CSR interfaces via GENIE"):
+            try:
+                dev = self.ensure_csr_connection()
+            except Exception as e:
+                print('Failed to connect with genie to CSR', e)
+            for ifname in ("GigabitEthernet2", "GigabitEthernet3"):
+                intf = Interface(name=ifname)
+                intf.device = dev
+                intf.ipv4 = dev.interfaces[ifname].ipv4
+                intf.enabled = True
+                cfg = intf.build_config(apply=False)
+                dev.configure(cfg.cli_config.data)
+
+    @aetest.subsection
+    def genie_configure_ospf(self, steps):
+        """This method is used to configure OSPF on CSR via GENIE"""
+        with steps.start("Configure OSPF on CSR via GENIE"):
+            try:
+                dev = self.ensure_csr_connection()
+            except Exception as e:
+                print('Failed to connect with genie to CSR', e)
+            ospf = Ospf()
+            da = ospf.device_attr[dev]
+            va = da.vrf_attr['default']
+            va.instance = '1'
+            for ifname in ("GigabitEthernet1", "GigabitEthernet2", "GigabitEthernet3"):
+                ia = va.area_attr['0'].interface_attr[ifname]
+                ia.if_admin_control = True
+            cfg = da.build_config(apply=False)
+            dev.configure(cfg.cli_config.data)
+
+    @aetest.subsection
+    def genie_configure_ssh_acl(self, steps):
+        """This method is used to configure an SSH ACL on CSR via GENIE"""
+        with steps.start("Configure SSH ACL on CSR via GENIE"):
+            try:
+                dev = self.ensure_csr_connection()
+            except Exception as e:
+                print('Failed to connect with genie to CSR', e)
+            container_ip = self.tb.devices['UbuntuServer'].interfaces['ens4'].ipv4.ip.compressed
+            cfg = f"""
+            ip access-list standard SSH
+             permit host {container_ip}
+             deny any
+            line vty 0 4
+             access-class SSH in
+             transport input ssh
+            """
+            dev.configure(cfg)
+
+    @aetest.subsection
     def swagger_connect_and_initial_setup(self, steps):
         """This method is being used to finish initial FTD setup and continue configuring it."""
         with steps.start("Connect to FTD and finish initial setup"):
@@ -413,7 +412,6 @@ class CommonSetup(aetest.CommonSetup):
                 print(allow_rule)
             except HTTPError as e:
                 print('Could not add allow rule on FTD:', e)
-
 
     @aetest.subsection
     def swagger_deploy(self, steps):

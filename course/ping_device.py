@@ -18,12 +18,6 @@ for port in PORTS:
         TelnetConnection(HOST, port)
     )
 
-async def producer(q: Queue):
-
-    await asyncio.gather(*(conn.connect() for conn in CONNS))
-    await asyncio.gather(*(conn.configure(q) for conn in CONNS))
-
-
 def ping_device(ip):
     print(f'Pinging {ip}...')
     subprocess.run(['ping', '-c', '4', ip])

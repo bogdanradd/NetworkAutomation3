@@ -7,22 +7,46 @@ import time
 
 REMOTE = 'osboxes@192.168.201.100'
 SSH_KEY = f"/home/{os.environ['SUDO_USER']}/.ssh/guest2_ed25519"
+IPS = ["192.168.201.1",
+       "192.168.201.100",
+       "192.168.202.1",
+       "192.168.202.2",
+       "192.168.203.2",
+       "192.168.203.3",
+       "192.168.204.3",
+       "192.168.204.4",
+       "192.168.205.100", ]
+SSH_IPS = ['192.168.201.1',
+           '192.168.202.2',
+           '192.168.203.3', ]
 
 
-def test_ssh_acl():
-    dos = subprocess.run(
+def test_ssh_acl(ip):
+    """This method is used to try the SSH ACL made on given IP"""
+    ssh_acl = subprocess.run(
         [
             'ssh',
             '-i', SSH_KEY,
             '-o', 'BatchMode=yes',
             '-o', 'StrictHostKeyChecking=no',
             REMOTE,
-            'ssh', '-l', 'admin', '192.168.201.1'
+            'ssh', '-l', 'admin', ip
         ],
         capture_output=True,
         text=True,
     )
-    print(dos.stdout)
+    for line in ssh_acl.stderr.splitlines():
+        if 'stdin' not in line:
+            print(line)
+
+
+def ping(ip):
+    """This method is used to launch a basic ping to a given IP"""
+    p = subprocess.run(['ping', '-c', '2', ip],
+                       capture_output=True,
+                       text=True)
+    print(p.stdout)
+
 
 def run_ping_1():
     """This method is used to send a ping from the main container to DockerGuest-1"""
@@ -32,10 +56,10 @@ def run_ping_1():
                            stdin=subprocess.PIPE,
                            text=True,
                            )
-    ) as ping:
-        for line in ping.stdout:
+    ) as p:
+        for line in p.stdout:
             print(line, end='')
-        ping.wait()
+        p.wait()
 
 
 def run_ping_2():
@@ -47,7 +71,7 @@ def run_ping_2():
             '-o', 'BatchMode=yes',
             '-o', 'StrictHostKeyChecking=no',
             REMOTE,
-            'ping', '-c', '5', '192.168.205.100'
+            'ping', '-c', '2', '192.168.205.100'
         ],
         capture_output=True,
         text=True,
@@ -101,3 +125,27 @@ def ping_and_dos():
     t2.start()
     t1.join()
     t2.join()
+
+
+def run_all_pings():
+    """This method is used to PING every device from main container"""
+    threads = []
+    for ip in IPS:
+        t = threading.Thread(target=ping, args=(ip,))
+        threads.append(t)
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+
+
+def test_all_ssh_acl():
+    """This method is used to test the SSH ACL made on IOU1, IOSv and CSR"""
+    threads = []
+    for ip in SSH_IPS:
+        t = threading.Thread(target=test_ssh_acl, args=(ip,))
+        threads.append(t)
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
