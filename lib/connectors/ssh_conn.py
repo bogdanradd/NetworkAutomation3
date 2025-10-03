@@ -30,11 +30,6 @@ class SSHConnection:
             username=self.username,
             password=self.password,
         )
-        try:
-            self.conn.enable()
-        except Exception:
-            pass
-        self.conn.send_command('terminal length 0')
 
 
     def configure(self, templates, **kwargs):

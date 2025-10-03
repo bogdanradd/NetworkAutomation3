@@ -86,7 +86,7 @@ class SwaggerConnector:
             spec_url=self._url + endpoint,
             http_client=http_client,
             request_headers=self._headers,
-            config={'validate_certificate': False, 'validate_responses': False},
+            config={'validate_certificate': False, 'validate_responses': False, },
         )
         return self.client
 
@@ -166,11 +166,9 @@ class SwaggerConnector:
                     addressPool='192.168.205.100-192.168.205.200',
                     enableDHCP=True,
                     interface=interface_ref_model(
-                        # hardwareName=interface_for_dhcp.hardwareName,
                         id=interface_for_dhcp.id,
                         name=interface_for_dhcp.name,
                         type='physicalinterface',
-                        # version='be5gwpeongcmt'
                     ),
                     type='dhcpserver'
                 )
@@ -198,7 +196,7 @@ class SwaggerConnector:
                 "ipv4Network": ref(id=netobj.id, name=netobj.name, type="networkobject"),
                 "tagInterface": ref(
                     id=itf.id, name=itf.name, type="physicalinterface",
-                    hardwareName=getattr(itf, "hardwareName", None)
+                    hardwareName=itf.hardwareName,
                 ),
             })
 
@@ -246,96 +244,76 @@ class SwaggerConnector:
         return self.client.OSPF.addOSPF(vrfId=vrf_id, body=body).result()
 
     def deploy(self):
-        """This method is used to deploy current config on FTD"""
+        """This method is used to deploy current configuration on FTD"""
         res = self.client.Deployment.addDeployment(body={"forceDeploy": True}).result()
-        dep_id = getattr(res, "id", None) or res.get("id")
+        dep_id = res.id
 
         terminal = {"DEPLOYED", "FAILED", "ERROR", "CANCELLED", "CANCELED"}
         while True:
             cur = self.client.Deployment.getDeployment(objId=dep_id).result()
-            state = (getattr(cur, "state", None) or cur.get("state") or "").upper()
+            state = (cur.state or "").upper()
             if state in terminal:
-                print(getattr(cur, "statusMessage", None) or cur.get("statusMessage"))
+                print(cur.statusMessage)
                 break
             time.sleep(2)
 
     def add_allow_rule(self, policy_name="NGFW-Access-Policy", rule_name="ALLOW_ALL"):
         """This method is used to add a rule that allows all traffic through FTD"""
+        ref_model = self.client.get_model("ReferenceModel")
+        access_rule_model = self.client.get_model("AccessRule")
 
         policies = self.client.AccessPolicy.getAccessPolicyList().result()
-        items = getattr(policies, "items", None) or policies.get("items", [])
-        policy = next(p for p in items if (getattr(p, "name", None) or p.get("name")) == policy_name)
-        policy_id = getattr(policy, "id", None) or policy.get("id")
+        items = policies.items
+        policy = next(p for p in items if p.name == policy_name)
+        policy_id = policy.id
 
         nets = self.client.NetworkObject.getNetworkObjectList(
             filter="name:IPv4-Private-192.168.0.0-16"
         ).result()
-        net = getattr(nets, "items", None)[0] if getattr(nets, "items", None) else nets["items"][0]
+        net = nets.items[0]
+        net_ref = ref_model(id=net.id, name=net.name, type="networkobject")
 
-        ref = {
-            "id": getattr(net, "id", None) or net.get("id"),
-            "name": getattr(net, "name", None) or net.get("name"),
-            "type": "networkobject",
-        }
-
-        body = {
-            "type": "accessrule",
-            "name": rule_name,
-            "ruleAction": "PERMIT",
-            "eventLogAction": "LOG_NONE",
-            "logFiles": False,
-            "sourceNetworks": [ref],
-            "destinationNetworks": [ref],
-            "sourceZones": [],
-            "destinationZones": [],
-            "sourcePorts": [],
-            "destinationPorts": [],
-            "urlFilter": {"type": "embeddedurlfilter", "urlCategories": [], "urlObjects": []},
-        }
-
+        body = access_rule_model(
+            type="accessrule",
+            name=rule_name,
+            ruleAction="PERMIT",
+            sourceNetworks=[net_ref],
+            destinationNetworks=[net_ref],
+        )
         return self.client.AccessPolicy.addAccessRule(parentId=policy_id, body=body).result()
 
     def add_attacker_rule(self, cidrs, policy_name='NGFW-Access-Policy', rule_name='DENY_ATTACKER'):
         """This method is used to add a rule against Attacker"""
+        ref_model = self.client.get_model("ReferenceModel")
+        access_rule_model = self.client.get_model("AccessRule")
+
         policies = self.client.AccessPolicy.getAccessPolicyList().result()
-        items = getattr(policies, "items", None) or policies.get("items", [])
-        policy = next(p for p in items if (getattr(p, "name", None) or p.get("name")) == policy_name)
-        policy_id = getattr(policy, "id", None) or policy.get("id")
+        items = policies.items
+        policy = next(p for p in items if p.name == policy_name)
+        policy_id = policy.id
 
         rules = self.client.AccessPolicy.getAccessRuleList(parentId=policy_id).result()
-        r_items = getattr(rules, "items", None) or rules.get("items", [])
-        allow = next((r for r in r_items if (getattr(r, "name", None) or r.get("name")) == "ALLOW_ALL"), None)
+        r_items = rules.items
+        allow = next((r for r in r_items if r.name == "ALLOW_ALL"), None)
         if allow:
             self.client.AccessPolicy.deleteAccessRule(
                 parentId=policy_id,
-                objId=getattr(allow, "id", None) or allow.get("id")
+                objId=allow.id,
             ).result()
 
-        src_obj = _ensure_netobj(self.client, cidrs[0])
-        dst_obj = _ensure_netobj(self.client, cidrs[1])
-        src_ref = {"id": getattr(src_obj, "id", None) or src_obj.get("id"),
-                   "name": getattr(src_obj, "name", None) or src_obj.get("name"),
-                   "type": "networkobject"}
-        dst_ref = {"id": getattr(dst_obj, "id", None) or dst_obj.get("id"),
-                   "name": getattr(dst_obj, "name", None) or dst_obj.get("name"),
-                   "type": "networkobject"}
+        src_obj = _ensure_netobj(self.client, cidrs[0])  # model
+        dst_obj = _ensure_netobj(self.client, cidrs[1])  # model
+        src_ref = ref_model(id=src_obj.id, name=src_obj.name, type="networkobject")
+        dst_ref = ref_model(id=dst_obj.id, name=dst_obj.name, type="networkobject")
 
-        body = {
-            "type": "accessrule",
-            "name": rule_name,
-            "enabled": True,
-            "ruleAction": "DENY",
-            "eventLogAction": "LOG_NONE",
-            "logFiles": False,
-            "sourceNetworks": [src_ref],
-            "destinationNetworks": [dst_ref],
-            "sourceZones": [],
-            "destinationZones": [],
-            "sourcePorts": [],
-            "destinationPorts": [],
-            "urlFilter": {"type": "embeddedurlfilter", "urlCategories": [], "urlObjects": []},
-        }
-
+        body = access_rule_model(
+            type="accessrule",
+            name=rule_name,
+            enabled=True,
+            ruleAction="DENY",
+            sourceNetworks=[src_ref],
+            destinationNetworks=[dst_ref],
+        )
         return self.client.AccessPolicy.addAccessRule(
             parentId=policy_id,
             body=body,
