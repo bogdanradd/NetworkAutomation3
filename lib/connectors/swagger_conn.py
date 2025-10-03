@@ -301,8 +301,8 @@ class SwaggerConnector:
                 objId=allow.id,
             ).result()
 
-        src_obj = _ensure_netobj(self.client, cidrs[0])  # model
-        dst_obj = _ensure_netobj(self.client, cidrs[1])  # model
+        src_obj = _ensure_netobj(self.client, cidrs[0])
+        dst_obj = _ensure_netobj(self.client, cidrs[1])
         src_ref = ref_model(id=src_obj.id, name=src_obj.name, type="networkobject")
         dst_ref = ref_model(id=dst_obj.id, name=dst_obj.name, type="networkobject")
 
