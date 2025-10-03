@@ -12,11 +12,11 @@ def configure_devices():
     script = pathlib.Path("/tmp/pycharm_project_844/project/menu_main_script.py")
     subprocess.run([sys.executable, str(script)], check=False)
 
+
 def configure_ftd_defence():
     """This method runs the pyats script that configures FTD defence policies"""
     script = pathlib.Path("/tmp/pycharm_project_844/project/add_defence_ftd.py")
     subprocess.run([sys.executable, str(script)], check=False)
-
 
 
 def display_menu():

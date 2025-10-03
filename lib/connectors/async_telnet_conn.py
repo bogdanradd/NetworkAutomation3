@@ -5,8 +5,6 @@ import re
 import time
 import telnetlib3
 
-HOST = '92.81.55.146'
-PORT = 5104
 
 
 def render_commands(templates, **kwargs):

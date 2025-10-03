@@ -1,12 +1,11 @@
 """This module is used to define every attack"""
 
-import os
 import subprocess
 import threading
 import time
 
 REMOTE = 'osboxes@192.168.201.100'
-SSH_KEY = f"/home/{os.environ['SUDO_USER']}/.ssh/guest2_ed25519"
+SSH_KEY = "/home/osboxes/.ssh/guest2_ed25519"
 IPS = ["192.168.201.1",
        "192.168.201.100",
        "192.168.202.1",
