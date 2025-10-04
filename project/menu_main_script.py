@@ -7,6 +7,7 @@ import asyncio
 
 from bravado.exception import HTTPError
 from pyats import aetest, topology
+from pyats.aetest import steps
 from pyats.topology import Device
 from genie.libs.conf.interface.iosxe import Interface
 from genie.libs.conf.ospf import Ospf
@@ -38,6 +39,13 @@ async def telnet_configure_ftd(conn: TelnetConnection, hostname, ip, netmask, ga
         gateway=gateway,
         password=password,
     )
+
+async def initial_setup_csr(conn: TelnetConnection):
+    """This is a helper function that is being called inside pyats in order to initialize CSR."""
+    await conn.connect()
+    time.sleep(1)
+    return await conn.initialize_csr()
+
 
 
 class CommonSetup(aetest.CommonSetup):
@@ -128,6 +136,21 @@ class CommonSetup(aetest.CommonSetup):
                     if subnet in ['192.168.204.0/24', '192.168.205.0/24']:
                         subprocess.run(['sudo', 'ip', 'route', 'replace', f'{subnet}', 'via', f'{csr_gw}'],
                                        check=True)
+
+    @aetest.subsection
+    def initial_setup_csr(self, steps):
+        """This method initializes CSR"""
+        with steps.start("Initial CSR setup"):
+            device = self.tb.devices['CSR']
+            conn_class = device.connections.get("telnet", {}).get("class", None)
+            assert conn_class, f"No connection for {device}"
+            ip = device.connections.telnet.ip.compressed
+            port = device.connections.telnet.port
+            try:
+                conn = conn_class(ip, port)
+                asyncio.run(initial_setup_csr(conn))
+            except Exception as e:
+                print(f'Failed to connect to device {device}', e)
 
     @aetest.subsection
     def configure_ssh(self, steps):

@@ -41,13 +41,15 @@ class TelnetConnection:
         """This method is used to send commands in CLI"""
         self.writer.write(data + '\n')
 
+
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.write('\n')
 
     async def execute_commands(self, command: list, prompt):
         """This method is used to execute certain sets of commands in CLI"""
         output = []
-        self.write('')
+        time.sleep(1)
+        self.write('\r')
         time.sleep(1)
         init_prompt = await self.read(n=500)
         self.write('terminal length 0')
@@ -67,13 +69,25 @@ class TelnetConnection:
         commands = render_commands(templates, **kwargs)
         return await self.execute_commands(commands, prmt)
 
+    async def initialize_csr(self):
+        """This method is used to initialize CSR"""
+        self.write('\r')
+        time.sleep(1)
+        out = await self.read(n=1000)
+        if 'dialog? [yes/no]' in out:
+            self.write('no')
+            time.sleep(2)
+            out = await self.read(n=1000)
+        if 'autoinstall? [yes]' in out:
+            self.write('')
+            time.sleep(20)
+
     async def configure_ftd(self, hostname, ip, netmask, gateway, password):
         """This method is used to configure FTD initial setup"""
         self.write('')
         time.sleep(1)
         out = await self.read(n=1000)
         time.sleep(1)
-        print(out)
         result = re.search(r'^\s*(?P<login>firepower login:)', out)
         if result.group('login'):
             self.write('admin')
