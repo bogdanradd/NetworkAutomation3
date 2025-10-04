@@ -49,8 +49,8 @@ class TelnetConnection:
         """This method is used to execute certain sets of commands in CLI"""
         output = []
         self.write('\r')
-        time.sleep(2)
-        init_prompt = await self.read(n=1000)
+        time.sleep(5)
+        init_prompt = await self.read(n=15000)
         self.write('terminal length 0')
         time.sleep(1)
         if '>' in init_prompt:
@@ -79,7 +79,7 @@ class TelnetConnection:
             out = await self.read(n=1000)
         if 'autoinstall? [yes]' in out:
             self.write('')
-            time.sleep(20)
+            time.sleep(28)
 
     async def configure_ftd(self, hostname, ip, netmask, gateway, password):
         """This method is used to configure FTD initial setup"""

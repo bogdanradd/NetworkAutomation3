@@ -51,9 +51,9 @@ class CommonSetup(aetest.CommonSetup):
             try:
                 deny_rule = connection.add_attacker_rule(cidrs=['192.168.201.0/24', '192.168.205.0/24'])
                 print(deny_rule)
-                connection.add_allow_rule()
-            except HTTPError:
-                print('Could not add rule against attacker on FTD')
+                connection.add_allow_rule(inside_interface='inside', outside_interface='outside')
+            except HTTPError as e:
+                print('Could not add rule against attacker on FTD', e)
 
 
     @aetest.subsection

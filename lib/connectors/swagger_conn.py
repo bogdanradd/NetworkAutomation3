@@ -257,30 +257,73 @@ class SwaggerConnector:
                 break
             time.sleep(2)
 
-    def add_allow_rule(self, policy_name="NGFW-Access-Policy", rule_name="ALLOW_ALL"):
-        """This method is used to add a rule that allows all traffic through FTD"""
+    def add_allow_rule(self, inside_interface, outside_interface, policy_name="NGFW-Access-Policy"):
+        """This method is used to create security zones and add bidirectional access rules"""
         ref_model = self.client.get_model("ReferenceModel")
+        security_zone_model = self.client.get_model("SecurityZone")
         access_rule_model = self.client.get_model("AccessRule")
 
+        existing_interfaces = self.client.Interface.getPhysicalInterfaceList().result()
+
+        inside_if = None
+        outside_if = None
+        for interface in existing_interfaces['items']:
+            if interface.name == inside_interface:
+                inside_if = interface
+            if interface.name == outside_interface:
+                outside_if = interface
+
+        existing_zones = self.client.SecurityZone.getSecurityZoneList().result()
+        inside_zone = next((z for z in existing_zones['items'] if z.name == "InsideSecZone"), None)
+        outside_zone = next((z for z in existing_zones['items'] if z.name == "OutsideSecZone"), None)
+
+        if not inside_zone:
+            inside_zone_body = security_zone_model(
+                name="InsideSecZone",
+                mode="ROUTED",
+                type="securityzone",
+                interfaces=[ref_model(type="physicalinterface", id=inside_if.id, name=inside_if.name)]
+            )
+            inside_zone = self.client.SecurityZone.addSecurityZone(body=inside_zone_body).result()
+
+        if not outside_zone:
+            outside_zone_body = security_zone_model(
+                name="OutsideSecZone",
+                mode="ROUTED",
+                type="securityzone",
+                interfaces=[ref_model(type="physicalinterface", id=outside_if.id, name=outside_if.name)]
+            )
+            outside_zone = self.client.SecurityZone.addSecurityZone(body=outside_zone_body).result()
+
         policies = self.client.AccessPolicy.getAccessPolicyList().result()
-        items = policies.items
-        policy = next(p for p in items if p.name == policy_name)
+        policy = next(p for p in policies.items if p.name == policy_name)
         policy_id = policy.id
 
-        nets = self.client.NetworkObject.getNetworkObjectList(
-            filter="name:IPv4-Private-192.168.0.0-16"
-        ).result()
-        net = nets.items[0]
-        net_ref = ref_model(id=net.id, name=net.name, type="networkobject")
+        inside_zone_ref = ref_model(id=inside_zone.id, type="securityzone")
+        outside_zone_ref = ref_model(id=outside_zone.id, type="securityzone")
 
-        body = access_rule_model(
+        result = []
+        rule1_body = access_rule_model(
+            name="Inside_Outside",
+            action="PERMIT",
+            enabled=True,
             type="accessrule",
-            name=rule_name,
-            ruleAction="PERMIT",
-            sourceNetworks=[net_ref],
-            destinationNetworks=[net_ref],
+            sourceZones=[inside_zone_ref],
+            destinationZones=[outside_zone_ref]
         )
-        return self.client.AccessPolicy.addAccessRule(parentId=policy_id, body=body).result()
+        result.append(self.client.AccessPolicy.addAccessRule(parentId=policy_id, body=rule1_body).result())
+
+        rule2_body = access_rule_model(
+            name="Outside_Inside",
+            action="PERMIT",
+            enabled=True,
+            type="accessrule",
+            sourceZones=[outside_zone_ref],
+            destinationZones=[inside_zone_ref]
+        )
+        result.append(self.client.AccessPolicy.addAccessRule(parentId=policy_id, body=rule2_body).result())
+
+        return result
 
     def add_attacker_rule(self, cidrs, policy_name='NGFW-Access-Policy', rule_name='DENY_ATTACKER'):
         """This method is used to add a rule against Attacker"""
@@ -294,11 +337,17 @@ class SwaggerConnector:
 
         rules = self.client.AccessPolicy.getAccessRuleList(parentId=policy_id).result()
         r_items = rules.items
-        allow = next((r for r in r_items if r.name == "ALLOW_ALL"), None)
-        if allow:
+        allow_1 = next((r for r in r_items if r.name == "Inside_Outside"), None)
+        if allow_1:
             self.client.AccessPolicy.deleteAccessRule(
                 parentId=policy_id,
-                objId=allow.id,
+                objId=allow_1.id,
+            ).result()
+        allow_2 = next((r for r in r_items if r.name == "Outside_Inside"), None)
+        if allow_2:
+            self.client.AccessPolicy.deleteAccessRule(
+                parentId=policy_id,
+                objId=allow_2.id,
             ).result()
 
         src_obj = _ensure_netobj(self.client, cidrs[0])
@@ -313,6 +362,7 @@ class SwaggerConnector:
             ruleAction="DENY",
             sourceNetworks=[src_ref],
             destinationNetworks=[dst_ref],
+            order=1
         )
         return self.client.AccessPolicy.addAccessRule(
             parentId=policy_id,

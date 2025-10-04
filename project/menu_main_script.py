@@ -427,7 +427,7 @@ class CommonSetup(aetest.CommonSetup):
         with steps.start("Add allow rule on FTD"):
             connection = self.ensure_swagger_connection()
             try:
-                allow_rule = connection.add_allow_rule()
+                allow_rule = connection.add_allow_rule(inside_interface='inside', outside_interface='outside')
                 print(allow_rule)
             except HTTPError as e:
                 print('Could not add allow rule on FTD:', e)

@@ -25,12 +25,12 @@ def display_menu():
         print("""
         ############### MENU ###############\n
         1) Configure devices
-        2) Run PINGS from Main Container to every IP in the topology
-        3) Run PING from Main container to DockerGuest-1
-        4) Run PING from Attacker to DockerGuest-1
-        5) Run NMAP from Attacker to DockerGuest-1
-        6) Run DOS from Attacker to DockerGuest-1
-        7) Run 2) and 5) at the same time
+        2) Run PINGS from Automation to every IP in the topology
+        3) Run PING from Automation to Guest
+        4) Run PING from Attacker to Guest
+        5) Run NMAP from Attacker to Guest
+        6) Run DOS from Attacker to Guest
+        7) Run 3) and 6) at the same time
         8) Add defence policies on FTD
         9) Test SSH ACLS made on IOU1, IOSv and CSR
         10) Run Pylint 
@@ -89,7 +89,7 @@ def display_menu():
                 run('project', '../project')
                 run('lib/connectors', '../lib/connectors')
             except Exception as e:
-                print('Failed run Pylint', e)
+                print('Failed to run Pylint', e)
         elif choice == '0':
             break
 
