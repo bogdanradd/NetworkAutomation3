@@ -48,10 +48,9 @@ class TelnetConnection:
     async def execute_commands(self, command: list, prompt):
         """This method is used to execute certain sets of commands in CLI"""
         output = []
-        time.sleep(1)
         self.write('\r')
-        time.sleep(1)
-        init_prompt = await self.read(n=500)
+        time.sleep(2)
+        init_prompt = await self.read(n=1000)
         self.write('terminal length 0')
         time.sleep(1)
         if '>' in init_prompt:

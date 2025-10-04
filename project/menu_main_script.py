@@ -7,7 +7,6 @@ import asyncio
 
 from bravado.exception import HTTPError
 from pyats import aetest, topology
-from pyats.aetest import steps
 from pyats.topology import Device
 from genie.libs.conf.interface.iosxe import Interface
 from genie.libs.conf.ospf import Ospf
