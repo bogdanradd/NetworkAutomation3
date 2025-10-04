@@ -72,7 +72,7 @@ class TelnetConnection:
         """This method is used to initialize CSR"""
         self.write('\r')
         time.sleep(1)
-        out = await self.read(n=1000)
+        out = await self.read(n=10000)
         if 'dialog? [yes/no]' in out:
             self.write('no')
             time.sleep(2)

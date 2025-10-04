@@ -218,11 +218,11 @@ topology:
         ipv4: 192.168.200.4/24
       GigabitEthernet0/0:
         type: ethernet
-        alias: csr_ftd
+        alias: outside
         link: csr_ftd
         ipv4: 192.168.204.4/24
       GigabitEthernet0/1:
         type: ethernet
-        alias: ftd_ep2
+        alias: inside
         link: ftd_ep2
         ipv4: 192.168.205.4/24
