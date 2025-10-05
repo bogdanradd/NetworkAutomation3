@@ -3,6 +3,7 @@
 import sys
 import subprocess
 import pathlib
+import unittest
 from try_attacks import run_ping_1, run_ping_2, run_nmap, run_dos, ping_and_dos, test_all_ssh_acl, run_all_pings
 from check_pylint import run
 
@@ -19,6 +20,18 @@ def configure_ftd_defence():
     subprocess.run([sys.executable, str(script)], check=False)
 
 
+def run_connector_unittests():
+    """This method runs all unittest files for connectors"""
+    print("\n" + "="*70)
+    print("Running Connector Unit Tests")
+    print("="*70 + "\n")
+
+    loader = unittest.TestLoader()
+    suite = loader.discover('/tmp/pycharm_project_844/project', pattern='magic_mock_*.py')
+    runner = unittest.TextTestRunner(verbosity=2)
+    result = runner.run(suite)
+
+
 def display_menu():
     """This method displays the menu and calls the desired function"""
     while True:
@@ -33,8 +46,10 @@ def display_menu():
         7) Run 3) and 6) at the same time
         8) Add defence policies on FTD
         9) Test SSH ACLS made on IOU1, IOSv and CSR
-        10) Run Pylint 
+        10) Run Pylint
+        11) Run unittests for connectors
         0) Exit
+        ############### MENU ###############
         """)
 
         choice = input("Enter your choice: ").strip()
@@ -90,6 +105,11 @@ def display_menu():
                 run('lib/connectors', '../lib/connectors')
             except Exception as e:
                 print('Failed to run Pylint', e)
+        elif choice == '11':
+            try:
+                run_connector_unittests()
+            except Exception as e:
+                print('Failed to run unittests', e)
         elif choice == '0':
             break
 

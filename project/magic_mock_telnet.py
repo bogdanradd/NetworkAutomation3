@@ -1,4 +1,8 @@
 """Unit tests for async telnet connector"""
+import warnings
+warnings.filterwarnings('ignore', category=UserWarning)
+warnings.filterwarnings('ignore', category=DeprecationWarning)
+
 import unittest
 from unittest.mock import MagicMock, patch, AsyncMock
 
@@ -9,17 +13,21 @@ class TestCase(unittest.TestCase):
     @patch('lib.connectors.async_telnet_conn.telnetlib3.open_connection')
     def test_connect(self, telnet_mock):
         """Test telnet connect method"""
+        import asyncio
         from lib.connectors.async_telnet_conn import TelnetConnection
         mock_reader = AsyncMock()
         mock_writer = MagicMock()
         telnet_mock.return_value = (mock_reader, mock_writer)
-        TelnetConnection('10.10.10.10', 23)
-        self.assertEqual(mock_reader, telnet_mock.return_value[0])
-        self.assertEqual(mock_writer, telnet_mock.return_value[1])
+        conn = TelnetConnection('10.10.10.10', 23)
+        asyncio.run(conn.connect())
+        telnet_mock.assert_called_once_with('10.10.10.10', 23)
+        self.assertEqual(mock_reader, conn.reader)
+        self.assertEqual(mock_writer, conn.writer)
 
     @patch('lib.connectors.async_telnet_conn.telnetlib3.open_connection')
     def test_readuntil(self, telnet_mock):
         """Test telnet readuntil method"""
+        import asyncio
         from lib.connectors.async_telnet_conn import TelnetConnection
         mock_reader = AsyncMock()
         mock_writer = MagicMock()
@@ -28,7 +36,9 @@ class TestCase(unittest.TestCase):
         conn = TelnetConnection('10.10.10.10', 23)
         conn.reader = mock_reader
         conn.writer = mock_writer
-        self.assertEqual(b'Router#', mock_reader.readuntil.return_value)
+        result = asyncio.run(conn.readuntil('#'))
+        mock_reader.readuntil.assert_called_once_with(b'#')
+        self.assertEqual('Router#', result)
 
     @patch('lib.connectors.async_telnet_conn.telnetlib3.open_connection')
     def test_write(self, telnet_mock):
@@ -53,3 +63,19 @@ class TestCase(unittest.TestCase):
             'ip address 10.0.0.1 255.255.255.0',
             'no shutdown'
         ], result)
+
+    @patch('lib.connectors.async_telnet_conn.telnetlib3.open_connection')
+    def test_read(self, telnet_mock):
+        """Test telnet read method"""
+        import asyncio
+        from lib.connectors.async_telnet_conn import TelnetConnection
+        mock_reader = AsyncMock()
+        mock_writer = MagicMock()
+        mock_reader.read = AsyncMock(return_value=b'Sample output')
+        telnet_mock.return_value = (mock_reader, mock_writer)
+        conn = TelnetConnection('10.10.10.10', 23)
+        conn.reader = mock_reader
+        conn.writer = mock_writer
+        result = asyncio.run(conn.read(1024))
+        mock_reader.read.assert_called_once_with(1024)
+        self.assertEqual(b'Sample output', result)

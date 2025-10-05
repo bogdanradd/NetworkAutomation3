@@ -1,4 +1,8 @@
 """Unit tests for SSH connector"""
+import warnings
+warnings.filterwarnings('ignore', category=UserWarning)
+warnings.filterwarnings('ignore', category=DeprecationWarning)
+
 import unittest
 from unittest.mock import MagicMock, patch
 
@@ -52,8 +56,7 @@ class TestCase(unittest.TestCase):
         mock_conn.disconnect.assert_called_once()
         self.assertIsNone(conn.conn)
 
-    @patch('lib.connectors.ssh_conn.ConnectHandler')
-    def test_render_commands(self, connect_handler_mock):
+    def test_render_commands(self):
         """Test render_commands helper function"""
         from lib.connectors.ssh_conn import render_commands
         templates = ['hostname {name}', 'interface {iface}', 'no shutdown']
