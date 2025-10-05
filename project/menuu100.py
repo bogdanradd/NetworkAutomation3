@@ -4,8 +4,10 @@ import sys
 import subprocess
 import pathlib
 import unittest
+import asyncio
 from try_attacks import run_ping_1, run_ping_2, run_nmap, run_dos, ping_and_dos, test_all_ssh_acl, run_all_pings
 from check_pylint import run
+from self_diagnose import SelfDiagnose, DEVICES
 
 
 def configure_devices():
@@ -29,7 +31,25 @@ def run_connector_unittests():
     loader = unittest.TestLoader()
     suite = loader.discover('/tmp/pycharm_project_844/project', pattern='magic_mock_*.py')
     runner = unittest.TextTestRunner(verbosity=2)
-    result = runner.run(suite)
+    runner.run(suite)
+
+
+def run_self_diagnose():
+    """This method runs self-diagnose on a selected router"""
+    print("\nAvailable routers:")
+    for device_name in DEVICES:
+        print(f"  - {device_name}")
+
+    router = input("\nEnter router name (IOU1 or IOSv): ").strip()
+
+    if router not in DEVICES:
+        print(f"Error: '{router}' is not a valid router. Please choose IOU1 or IOSv.")
+        return
+
+    device_info = DEVICES[router]
+    print(f"\n=== Starting self-diagnose for {router} ===")
+    diagnose = SelfDiagnose(device_info['host'], device_info['port'], router)
+    asyncio.run(diagnose.run_self_diagnose())
 
 
 def display_menu():
@@ -46,8 +66,9 @@ def display_menu():
         7) Run 3) and 6) at the same time
         8) Add defence policies on FTD
         9) Test SSH ACLS made on IOU1, IOSv and CSR
-        10) Run Pylint
-        11) Run unittests for connectors
+        10) Self-diagnose router
+        11) Run Pylint
+        12) Run unittests for connectors
         0) Exit
         ############### MENU ###############
         """)
@@ -101,11 +122,16 @@ def display_menu():
                 print('Failed to test SSH ACLs', e)
         elif choice == '10':
             try:
+                run_self_diagnose()
+            except Exception as e:
+                print('Failed to run self-diagnose', e)
+        elif choice == '11':
+            try:
                 run('project', '../project')
                 run('lib/connectors', '../lib/connectors')
             except Exception as e:
                 print('Failed to run Pylint', e)
-        elif choice == '11':
+        elif choice == '12':
             try:
                 run_connector_unittests()
             except Exception as e:

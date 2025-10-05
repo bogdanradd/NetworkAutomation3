@@ -1,10 +1,10 @@
 """Unit tests for async telnet connector"""
+import unittest
 import warnings
+from unittest.mock import MagicMock, patch, AsyncMock
+
 warnings.filterwarnings('ignore', category=UserWarning)
 warnings.filterwarnings('ignore', category=DeprecationWarning)
-
-import unittest
-from unittest.mock import MagicMock, patch, AsyncMock
 
 
 class TestCase(unittest.TestCase):

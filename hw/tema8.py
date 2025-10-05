@@ -1,6 +1,6 @@
 import time
 import asyncio
-from tema6 import ParseConfig
+from project.confighelper import ParseConfig
 from lib.connectors.async_telnet_conn import TelnetConnection
 
 HOST = '92.81.55.146'

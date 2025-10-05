@@ -1,10 +1,10 @@
 """Unit tests for swagger connector"""
+import unittest
 import warnings
+from unittest.mock import MagicMock, patch
+
 warnings.filterwarnings('ignore', category=UserWarning)
 warnings.filterwarnings('ignore', category=DeprecationWarning)
-
-import unittest
-from unittest.mock import MagicMock, patch
 
 
 class TestCase(unittest.TestCase):
@@ -128,7 +128,10 @@ class TestCase(unittest.TestCase):
         mock_dhcp_server = MagicMock()
         mock_dhcp_server.id = 'dhcp_123'
         mock_dhcp_server.servers = [MagicMock()]
-        mock_client.DHCPServerContainer.getDHCPServerContainerList.return_value = {'items': [mock_dhcp_server]}
+
+        mock_list_response = MagicMock()
+        mock_list_response.result.return_value = {'items': [mock_dhcp_server]}
+        mock_client.DHCPServerContainer.getDHCPServerContainerList.return_value = mock_list_response
         mock_client.DHCPServerContainer.editDHCPServerContainer.return_value.result.return_value = {'status': 'success'}
         conn.client = mock_client
 
@@ -162,7 +165,9 @@ class TestCase(unittest.TestCase):
         mock_interface2.hardwareName = 'GigabitEthernet0/1'
         mock_interface2.id = 'if2_id'
 
-        mock_client.Interface.getPhysicalInterfaceList.return_value = {'items': [mock_interface1, mock_interface2]}
+        mock_list_response = MagicMock()
+        mock_list_response.result.return_value = {'items': [mock_interface1, mock_interface2]}
+        mock_client.Interface.getPhysicalInterfaceList.return_value = mock_list_response
         mock_client.Interface.editPhysicalInterface.return_value.result.return_value = {'status': 'success'}
         conn.client = mock_client
 

@@ -1,10 +1,10 @@
 """Unit tests for SSH connector"""
+import unittest
 import warnings
+from unittest.mock import MagicMock, patch
+
 warnings.filterwarnings('ignore', category=UserWarning)
 warnings.filterwarnings('ignore', category=DeprecationWarning)
-
-import unittest
-from unittest.mock import MagicMock, patch
 
 
 class TestCase(unittest.TestCase):

@@ -136,20 +136,20 @@ class CommonSetup(aetest.CommonSetup):
                         subprocess.run(['sudo', 'ip', 'route', 'replace', f'{subnet}', 'via', f'{csr_gw}'],
                                        check=True)
 
-    @aetest.subsection
-    def initial_setup_csr(self, steps):
-        """This method initializes CSR"""
-        with steps.start("Initial CSR setup"):
-            device = self.tb.devices['CSR']
-            conn_class = device.connections.get("telnet", {}).get("class", None)
-            assert conn_class, f"No connection for {device}"
-            ip = device.connections.telnet.ip.compressed
-            port = device.connections.telnet.port
-            try:
-                conn = conn_class(ip, port)
-                asyncio.run(initial_setup_csr(conn))
-            except Exception as e:
-                print(f'Failed to connect to device {device}', e)
+    # @aetest.subsection
+    # def initial_setup_csr(self, steps):
+    #     """This method initializes CSR"""
+    #     with steps.start("Initial CSR setup"):
+    #         device = self.tb.devices['CSR']
+    #         conn_class = device.connections.get("telnet", {}).get("class", None)
+    #         assert conn_class, f"No connection for {device}"
+    #         ip = device.connections.telnet.ip.compressed
+    #         port = device.connections.telnet.port
+    #         try:
+    #             conn = conn_class(ip, port)
+    #             asyncio.run(initial_setup_csr(conn))
+    #         except Exception as e:
+    #             print(f'Failed to connect to device {device}', e)
 
     @aetest.subsection
     def configure_ssh(self, steps):
@@ -191,37 +191,37 @@ class CommonSetup(aetest.CommonSetup):
                         print(f'Failed to connect to device {device}', e)
                         continue
 
-    @aetest.subsection
-    def bring_up_ftd_interface(self, steps):
-        """This method adds an ip address to FTD's management interface."""
-        with steps.start("Bring up FTD management interface"):
-            for device in self.tb.devices:
-                if self.tb.devices[device].custom.role != 'firewall':
-                    continue
-                for interface in self.tb.devices[device].interfaces:
-                    if self.tb.devices[device].interfaces[interface].link.name != 'management':
-                        continue
-
-                    intf_obj = self.tb.devices[device].interfaces[interface]
-                    hostname = self.tb.devices[device].custom.hostname
-                    gateway = self.tb.devices['UbuntuServer'].interfaces['ens4'].ipv4.ip.compressed
-                    conn_class = self.tb.devices[device].connections.get('telnet', {}).get('class', None)
-                    assert conn_class, f'No connection for device {device}'
-                    ip = self.tb.devices[device].connections.telnet.ip.compressed
-                    port = self.tb.devices[device].connections.telnet.port
-                    password = self.tb.devices[device].connections.telnet.credentials.login.password.plaintext
-                    conn: TelnetConnection = conn_class(ip, port)
-
-                    asyncio.run(
-                        telnet_configure_ftd(
-                            conn,
-                            hostname=hostname,
-                            ip=intf_obj.ipv4.ip.compressed,
-                            netmask=intf_obj.ipv4.netmask.exploded,
-                            gateway=gateway,
-                            password=password,
-                        )
-                    )
+    # @aetest.subsection
+    # def bring_up_ftd_interface(self, steps):
+    #     """This method adds an ip address to FTD's management interface."""
+    #     with steps.start("Bring up FTD management interface"):
+    #         for device in self.tb.devices:
+    #             if self.tb.devices[device].custom.role != 'firewall':
+    #                 continue
+    #             for interface in self.tb.devices[device].interfaces:
+    #                 if self.tb.devices[device].interfaces[interface].link.name != 'management':
+    #                     continue
+    #
+    #                 intf_obj = self.tb.devices[device].interfaces[interface]
+    #                 hostname = self.tb.devices[device].custom.hostname
+    #                 gateway = self.tb.devices['UbuntuServer'].interfaces['ens4'].ipv4.ip.compressed
+    #                 conn_class = self.tb.devices[device].connections.get('telnet', {}).get('class', None)
+    #                 assert conn_class, f'No connection for device {device}'
+    #                 ip = self.tb.devices[device].connections.telnet.ip.compressed
+    #                 port = self.tb.devices[device].connections.telnet.port
+    #                 password = self.tb.devices[device].connections.telnet.credentials.login.password.plaintext
+    #                 conn: TelnetConnection = conn_class(ip, port)
+    #
+    #                 asyncio.run(
+    #                     telnet_configure_ftd(
+    #                         conn,
+    #                         hostname=hostname,
+    #                         ip=intf_obj.ipv4.ip.compressed,
+    #                         netmask=intf_obj.ipv4.netmask.exploded,
+    #                         gateway=gateway,
+    #                         password=password,
+    #                     )
+    #                 )
 
     @aetest.subsection
     def ssh_configure_interfaces(self, steps):
