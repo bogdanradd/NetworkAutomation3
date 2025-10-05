@@ -2,9 +2,6 @@
 
 from netmiko import ConnectHandler
 
-HOST = '192.168.100.1'
-PORT = 22
-
 
 def render_commands(templates, **kwargs):
     """This method is used to render commands and format them"""
@@ -13,6 +10,7 @@ def render_commands(templates, **kwargs):
 
 class SSHConnection:
     """This class is used to take care of the SSH connections"""
+
     def __init__(self, host, port, username, password, device_type='cisco_ios'):
         self.device_type = device_type
         self.host = host
@@ -30,7 +28,6 @@ class SSHConnection:
             username=self.username,
             password=self.password,
         )
-
 
     def configure(self, templates, **kwargs):
         """This method is used to send sets of commands to the device"""
