@@ -18,7 +18,7 @@ class SelfDiagnose:
         """Initialize SelfDiagnose with device connection parameters"""
         self.host = host
         self.port = port
-        self.device_name = device_name or f"{host}_{port}"
+        self.device_name = device_name
         self.golden_config_path = f'golden_running_config_{self.device_name}.txt'
         self.current_config_path = f'current_running_config_{self.device_name}.txt'
 
