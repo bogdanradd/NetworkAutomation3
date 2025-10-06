@@ -1,6 +1,6 @@
 import time
 import asyncio
-from project.confighelper import ParseConfig
+from project.config_helper import ParseConfig
 from lib.connectors.async_telnet_conn import TelnetConnection
 
 HOST = '92.81.55.146'

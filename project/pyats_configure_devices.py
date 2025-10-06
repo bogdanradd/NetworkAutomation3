@@ -43,7 +43,7 @@ async def initial_setup_csr(conn: TelnetConnection):
     """This is a helper function that is being called inside pyats in order to initialize CSR."""
     await conn.connect()
     time.sleep(1)
-    return await conn.initialize_csr()
+    return await conn.initialize()
 
 
 

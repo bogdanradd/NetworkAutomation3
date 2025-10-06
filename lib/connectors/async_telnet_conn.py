@@ -6,7 +6,6 @@ import time
 import telnetlib3
 
 
-
 def render_commands(templates, **kwargs):
     """This method is used to render commands and format them"""
     return [str(t).format(**kwargs) for t in templates]
@@ -41,7 +40,6 @@ class TelnetConnection:
         """This method is used to send commands in CLI"""
         self.writer.write(data + '\n')
 
-
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.write('\n')
 
@@ -54,8 +52,6 @@ class TelnetConnection:
         self.write('\r')
         time.sleep(3)
         init_prompt = await self.read(n=10000)
-        self.write('terminal length 0')
-        time.sleep(1)
         if '>' in init_prompt:
             self.write('en')
             out = await self.readuntil('#')
@@ -71,10 +67,12 @@ class TelnetConnection:
         commands = render_commands(templates, **kwargs)
         return await self.execute_commands(commands, prmt)
 
-    async def initialize_csr(self):
+    async def initialize(self):
         """This method is used to initialize CSR"""
         self.write('\r')
-        time.sleep(1)
+        time.sleep(2)
+        self.write('\r')
+        time.sleep(2)
         out = await self.read(n=10000)
         if 'dialog? [yes/no]' in out:
             self.write('no')
@@ -84,7 +82,7 @@ class TelnetConnection:
             self.write('')
         time.sleep(30)
 
-    async def get_running_config(self, output_file: str) -> str:
+    async def get_running_config(self, output_file: str):
         """Extract running configuration from device"""
         time.sleep(2)
         self.write('\r')
@@ -137,9 +135,9 @@ class TelnetConnection:
             out = await self.read(n=10000)
         if '[confirm]' in out:
             self.write('')
-        time.sleep(55)
+        time.sleep(60)
 
-    def _get_indent_level(self, line: str) -> int:
+    def _get_indent_level(self, line: str):
         """Get the indentation level of a line"""
         return len(line) - len(line.lstrip())
 
@@ -148,7 +146,6 @@ class TelnetConnection:
         lines = [l for l in block.splitlines() if l.strip() and not l.strip().startswith('!')]
         if not lines:
             return
-
         is_interface_block = lines[0].strip().startswith('interface ')
         filtered_lines = []
         for line in lines:
@@ -156,32 +153,25 @@ class TelnetConnection:
             if stripped == 'shutdown':
                 continue
             filtered_lines.append(line)
-
         lines = filtered_lines
         current_indent = 0
-
         for line in lines:
             line_indent = self._get_indent_level(line)
             stripped_line = line.strip()
-
             if line_indent < current_indent:
                 exits_needed = (current_indent - line_indent) // 1
                 for _ in range(exits_needed):
                     self.write('exit')
                     time.sleep(0.3)
                     await self.read(n=1000)
-
             self.write(stripped_line)
             time.sleep(0.3)
             await self.read(n=1000)
-
             current_indent = line_indent
-
         if is_interface_block and current_indent > 0:
             self.write('no shutdown')
             time.sleep(0.3)
             await self.read(n=1000)
-
         while current_indent > 0:
             self.write('exit')
             time.sleep(0.3)
@@ -260,7 +250,7 @@ class TelnetConnection:
                     self.write(' ')
                 elif "Please enter 'YES' or press <ENTER> to AGREE to the EULA: " in out:
                     self.write('')
-                    time.sleep(2)
+                    time.sleep(3)
                     out = await self.read(n=1000)
                     break
                 else:
@@ -268,11 +258,11 @@ class TelnetConnection:
 
         if 'password:' in out:
             self.write(password)
-            time.sleep(2)
+            time.sleep(3)
             out = await self.read(n=1000)
             if 'password:' in out:
                 self.write(password)
-                time.sleep(3)
+                time.sleep(5)
                 out = await self.read(n=1000)
 
         if 'IPv4? (y/n) [y]:' in out:

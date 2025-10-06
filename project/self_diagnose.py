@@ -2,12 +2,12 @@
 import asyncio
 import time
 
-from project.confighelper import ParseConfig
+from project.config_helper import ParseConfig
 from lib.connectors.async_telnet_conn import TelnetConnection
 
 DEVICES = {
-    'IOU1': {'host': '92.81.55.146', 'port': 5097},
-    'IOSv': {'host': '92.81.55.146', 'port': 5095},
+    'IOU1': {'host': '92.81.55.146', 'port': 5036},
+    'IOSv': {'host': '92.81.55.146', 'port': 5037},
 }
 
 
@@ -109,10 +109,10 @@ class SelfDiagnose:
             config.rewrite_file()
         await conn.erase_and_reload()
         print("Diagnosing...")
-        time.sleep(10)
+        time.sleep(15)
         conn = TelnetConnection(self.host, self.port)
         await conn.connect()
-        await conn.initialize_csr()
+        await conn.initialize()
         await conn.get_running_config(self.current_config_path)
         missing_blocks = self.compare_configs(self.golden_config_path, self.current_config_path)
         if missing_blocks:

@@ -5,20 +5,20 @@ import subprocess
 import pathlib
 import unittest
 import asyncio
-from try_attacks import run_ping_1, run_ping_2, run_nmap, run_dos, ping_and_dos, test_all_ssh_acl, run_all_pings
+from pings_and_attacks import run_ping_1, run_ping_2, run_nmap, run_dos, ping_and_dos, test_all_ssh_acl, run_all_pings
 from check_pylint import run
 from self_diagnose import SelfDiagnose, DEVICES
 
 
 def configure_devices():
     """This method runs the pyats script that configures the devices"""
-    script = pathlib.Path("/tmp/pycharm_project_844/project/menu_main_script.py")
+    script = pathlib.Path("/tmp/pycharm_project_844/project/pyats_configure_devices.py")
     subprocess.run([sys.executable, str(script)], check=False)
 
 
 def configure_ftd_defence():
     """This method runs the pyats script that configures FTD defence policies"""
-    script = pathlib.Path("/tmp/pycharm_project_844/project/add_defence_ftd.py")
+    script = pathlib.Path("/tmp/pycharm_project_844/project/pyats_add_defense_ftd.py")
     subprocess.run([sys.executable, str(script)], check=False)
 
 
