@@ -49,7 +49,7 @@ def run_self_diagnose():
     device_info = DEVICES[router]
     print(f"\n=== Starting self-diagnose for {router} ===")
     diagnose = SelfDiagnose(device_info['host'], device_info['port'], router)
-    asyncio.run(diagnose.run_self_diagnose())
+    asyncio.run(diagnose.run_self_diagnose(router))
 
 
 def display_menu():

@@ -135,7 +135,7 @@ class TelnetConnection:
             out = await self.read(n=10000)
         if '[confirm]' in out:
             self.write('')
-        time.sleep(60)
+        time.sleep(20)
 
     def _get_indent_level(self, line: str):
         """Get the indentation level of a line"""

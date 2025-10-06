@@ -98,7 +98,7 @@ class SelfDiagnose:
                 return True
         return False
 
-    async def run_self_diagnose(self):
+    async def run_self_diagnose(self, dev_name):
         """Run the complete self-diagnose process"""
         print("Restoring to default settings...")
         conn = TelnetConnection(self.host, self.port)
@@ -108,8 +108,10 @@ class SelfDiagnose:
             config.reduce_config()
             config.rewrite_file()
         await conn.erase_and_reload()
+        if dev_name == "IOSv":
+            time.sleep(50)
         print("Diagnosing...")
-        time.sleep(15)
+        time.sleep(5)
         conn = TelnetConnection(self.host, self.port)
         await conn.connect()
         await conn.initialize()
@@ -127,7 +129,7 @@ async def run_device_diagnose(device_name, device_info):
     """Run self-diagnose for a single device"""
     print(f"\n=== Self-diagnose for {device_name} ===")
     diagnose = SelfDiagnose(device_info['host'], device_info['port'], device_name)
-    await diagnose.run_self_diagnose()
+    await diagnose.run_self_diagnose(device_name)
 
 async def main():
     """Main function to run self-diagnose"""
