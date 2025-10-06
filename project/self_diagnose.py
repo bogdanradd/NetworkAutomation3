@@ -6,7 +6,7 @@ from project.config_helper import ParseConfig
 from lib.connectors.async_telnet_conn import TelnetConnection
 
 DEVICES = {
-    'IOU1': {'host': '92.81.55.146', 'port': 5036},
+    'IOU1': {'host': '92.81.55.146', 'port': 5032},
     'IOSv': {'host': '92.81.55.146', 'port': 5037},
 }
 

@@ -176,7 +176,7 @@ class TelnetConnection:
             self.write('exit')
             time.sleep(0.3)
             await self.read(n=1000)
-            current_indent = 0
+            current_indent -= 1
 
     async def apply_missing_config(self, missing_blocks: dict):
         """Apply missing configuration blocks to restore the device"""
