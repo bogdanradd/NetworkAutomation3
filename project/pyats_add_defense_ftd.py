@@ -47,14 +47,13 @@ class CommonSetup(aetest.CommonSetup):
     def add_attacker_rule(self, steps):
         """This method is used to add a rule against Attacker, so it denies every attack targeting 192.168.205.0/24"""
         with steps.start("Add rule against attacker on FTD"):
-            # connection = self.ensure_swagger_connection()
-            # try:
-            #     deny_rule = connection.add_attacker_rule(cidrs=['192.168.201.0/24', '192.168.205.0/24'])
-            #     print(deny_rule)
-            #     connection.add_allow_rule(inside_interface='inside', outside_interface='outside')
-            # except HTTPError as e:
-            #     print('Could not add rule against attacker on FTD', e)
-            pass
+            connection = self.ensure_swagger_connection()
+            try:
+                deny_rule = connection.add_attacker_rule(cidrs=['192.168.201.0/24', '192.168.205.0/24'])
+                print(deny_rule)
+                connection.add_allow_rule(inside_interface='inside', outside_interface='outside')
+            except HTTPError as e:
+                print('Could not add rule against attacker on FTD', e)
 
     @aetest.subsection
     def swagger_deploy(self, steps):
